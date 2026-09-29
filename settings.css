@@ -1,0 +1,70 @@
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  padding: 20px;
+  background: Canvas;
+  color: CanvasText;
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.group {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.label {
+  font-weight: 590;
+}
+
+.help {
+  margin-top: 2px;
+  color: color-mix(in srgb, CanvasText 55%, Canvas);
+  font-size: 12px;
+}
+
+.keys,
+#shortcut {
+  flex: none;
+  min-width: 7.5rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
+  border-radius: 6px;
+  background: color-mix(in srgb, CanvasText 4%, Canvas);
+  color: CanvasText;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+#shortcut.is-recording {
+  border-color: Highlight;
+  box-shadow: 0 0 0 3px color-mix(in srgb, Highlight 35%, transparent);
+}
+
+label {
+  font-weight: 590;
+}
+
+input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: Highlight;
+}

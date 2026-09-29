@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'"
+    />
+    <title>Orbit Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <section class="group">
+      <div class="row">
+        <div>
+          <p class="label">Shortcut</p>
+          <p class="help" id="shortcut-help">Click, then press the keys to hold.</p>
+        </div>
+        <button type="button" id="shortcut">⌃⌥</button>
+      </div>
+      <div class="row">
+        <label for="login">Open at Login</label>
+        <input id="login" type="checkbox" />
+      </div>
+    </section>
+    <script src="shortcut.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>

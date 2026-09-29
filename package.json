@@ -1,0 +1,19 @@
+{
+  "name": "orbit",
+  "version": "0.1.0",
+  "description": "Orbit",
+  "productName": "Orbit",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/ensure-mod-watch.js && electron ."
+  },
+  "author": "dupenodi",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "gsap": "^3.15.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5"
+  }
+}
