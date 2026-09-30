@@ -21,7 +21,7 @@ public static class Input {
 [Input]::SetProcessDPIAware() | Out-Null
 
 # A real (injected) absolute move, so apps see mouse movement, not just a warped cursor.
-function Move($x, $y) {
+function Set-Pointer($x, $y) {
   $w = [Input]::GetSystemMetrics(0) - 1
   $h = [Input]::GetSystemMetrics(1) - 1
   [Input]::mouse_event(0x8001, [int]($x * 65535 / $w), [int]($y * 65535 / $h), 0, [UIntPtr]::Zero)
@@ -32,13 +32,13 @@ function Key($vk, $up) { [Input]::keybd_event($vk, 0, $(if ($up) { 2 } else { 0 
 switch ($Command) {
   'drag' {
     $x1, $y1, $x2, $y2 = $Numbers
-    Move $x1 $y1
+    Set-Pointer $x1 $y1
     [Input]::mouse_event(0x2, 0, 0, 0, [UIntPtr]::Zero)
-    for ($i = 1; $i -le 20; $i++) { Move ($x1 + ($x2 - $x1) * $i / 20) ($y1 + ($y2 - $y1) * $i / 20) }
+    for ($i = 1; $i -le 20; $i++) { Set-Pointer ($x1 + ($x2 - $x1) * $i / 20) ($y1 + ($y2 - $y1) * $i / 20) }
     [Input]::mouse_event(0x4, 0, 0, 0, [UIntPtr]::Zero)
   }
   'click' {
-    Move $Numbers[0] $Numbers[1]
+    Set-Pointer $Numbers[0] $Numbers[1]
     [Input]::mouse_event(0x2, 0, 0, 0, [UIntPtr]::Zero)
     Start-Sleep -Milliseconds 30
     [Input]::mouse_event(0x4, 0, 0, 0, [UIntPtr]::Zero)
@@ -51,7 +51,7 @@ switch ($Command) {
   'hold-move' {
     Key 0x11 $false; Key 0x12 $false
     Start-Sleep -Milliseconds 400
-    Move $Numbers[1] $Numbers[2]
+    Set-Pointer $Numbers[1] $Numbers[2]
     Start-Sleep -Milliseconds $Numbers[0]
     Key 0x12 $true; Key 0x11 $true
   }
