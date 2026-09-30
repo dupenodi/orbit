@@ -1,6 +1,6 @@
 {
   "name": "orbit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Hold a shortcut, flick toward an action, release.",
   "productName": "Orbit",
   "main": "main.js",
@@ -24,7 +24,7 @@
   "build": {
     "appId": "com.dupenodi.orbit",
     "productName": "Orbit",
-    "copyright": "\u00a9 2026 dupenodi",
+    "copyright": "© 2026 dupenodi",
     "asar": false,
     "files": [
       "**/*",
