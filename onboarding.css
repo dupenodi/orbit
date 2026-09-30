@@ -809,3 +809,8 @@ h1 {
     animation: none;
   }
 }
+
+/* Windows: the tray menu opens on its own, with no macOS menu bar above it. */
+:root[data-platform='win32'] .menubar {
+  display: none;
+}

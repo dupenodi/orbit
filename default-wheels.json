@@ -2,14 +2,14 @@
   "apps": {},
   "global": {
     "slots": [
-      { "label": "Grab Text", "caption": "From screen", "about": "Copies the text in any area you drag over, even inside images and videos.", "icon": "scan", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/grab-text" } },
-      { "label": "Screenshot", "caption": "To clipboard", "about": "Copies a picture of any area you drag over, ready to paste.", "icon": "screenshot", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/screenshot" } },
-      { "label": "Scan QR", "caption": "From screen", "about": "Reads a QR code or barcode you drag over. Links open, anything else is copied.", "icon": "qr", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/scan-qr" } },
-      { "label": "Pick Color", "caption": "As hex", "about": "Copies the color of any pixel on screen as a hex value.", "icon": "picker", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/pick-color" } },
-      { "label": "Switch Theme", "caption": "Light or dark", "about": "Switches your Mac between light and dark mode.", "icon": "theme", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/theme" } },
-      { "label": "Play or Pause", "caption": "Any player", "about": "Plays or pauses whatever is playing, like pressing the media key.", "icon": "playpause", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/play-pause" } },
-      { "label": "Toggle Mic", "caption": "Mute or unmute", "about": "Mutes your microphone. Pick again to unmute.", "icon": "mute", "run": { "type": "shell", "cmd": "$ORBIT_HELPERS/mic" } },
-      { "label": "Start Timer", "caption": "25 minutes", "about": "Starts a 25-minute timer that ends with a notification. Pick again to cancel.", "icon": "timer", "run": { "type": "timer", "minutes": 25 } }
+      { "label": "Grab Text", "caption": "From screen", "about": "Copies the text in any area you drag over, even inside images and videos.", "icon": "scan", "run": { "type": "builtin", "action": "grab-text" } },
+      { "label": "Screenshot", "caption": "To clipboard", "about": "Copies a picture of any area you drag over, ready to paste.", "icon": "screenshot", "run": { "type": "builtin", "action": "screenshot" } },
+      { "label": "Scan QR", "caption": "From screen", "about": "Reads a QR code or barcode you drag over. Links open, anything else is copied.", "icon": "qr", "run": { "type": "builtin", "action": "scan-qr" } },
+      { "label": "Pick Color", "caption": "As hex", "about": "Copies the color of any pixel on screen as a hex value.", "icon": "picker", "run": { "type": "builtin", "action": "pick-color" } },
+      { "label": "Switch Theme", "caption": "Light or dark", "about": "Switches your Mac between light and dark mode.", "icon": "theme", "run": { "type": "builtin", "action": "switch-theme" } },
+      { "label": "Play or Pause", "caption": "Any player", "about": "Plays or pauses whatever is playing, like pressing the media key.", "icon": "playpause", "run": { "type": "builtin", "action": "play-pause" } },
+      { "label": "Toggle Mic", "caption": "Mute or unmute", "about": "Mutes your microphone. Pick again to unmute.", "icon": "mute", "run": { "type": "builtin", "action": "toggle-mic" } },
+      { "label": "Start Timer", "caption": "25 minutes", "about": "Starts a 25-minute timer that ends with a notification. Pick again to cancel.", "icon": "timer", "run": { "type": "builtin", "action": "timer", "minutes": 25 } }
     ]
   }
 }

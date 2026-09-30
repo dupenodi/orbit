@@ -1,0 +1,77 @@
+name: Windows
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the native helper
+        run: node scripts/ensure-mod-watch.js
+
+      - name: End-to-end tests
+        run: npx electron test/windows-e2e.js
+
+      # Launch the real app, hold Ctrl+Alt, and photograph the wheel.
+      - name: Wheel smoke test
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test-output | Out-Null
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $app = Start-Process -FilePath node_modules\electron\dist\electron.exe -ArgumentList '.' -PassThru `
+            -RedirectStandardOutput test-output\app-out.log -RedirectStandardError test-output\app-err.log
+          Start-Sleep -Seconds 10
+          function Show-Logs { Get-Content test-output\app-out.log, test-output\app-err.log -ErrorAction SilentlyContinue | Select-Object -Last 60 }
+          if ($app.HasExited) { Show-Logs; throw 'Orbit exited on launch' }
+          if (-not (Get-Process orbit-win -ErrorAction SilentlyContinue)) { Show-Logs; throw 'The shortcut watcher is not running' }
+          $hold = Start-Job { powershell -NoProfile -ExecutionPolicy Bypass -File "$using:PWD\test\win-input.ps1" hold-move 2500 700 300 }
+          Start-Sleep -Milliseconds 1800
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          [System.Drawing.Graphics]::FromImage($bitmap).CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save("$PWD\test-output\wheel-open.png")
+          Wait-Job $hold | Receive-Job
+          Start-Sleep -Seconds 2
+          if ($app.HasExited) { throw 'Orbit crashed while the wheel was open' }
+          Stop-Process -Id $app.Id -Force
+          Get-Process orbit-win -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: Build the installer
+        run: npx electron-builder --win --publish never
+
+      - name: Install and launch
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist\Orbit-Setup-*.exe | Select-Object -First 1
+          Start-Process $installer.FullName -ArgumentList '/S' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\Orbit\Orbit.exe"
+          if (-not (Test-Path $exe)) { throw "Orbit.exe not installed at $exe" }
+          $app = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 10
+          if ($app.HasExited) { throw 'Installed Orbit exited on launch' }
+          if (-not (Get-Process orbit-win -ErrorAction SilentlyContinue)) { throw 'Installed Orbit has no shortcut watcher' }
+          Stop-Process -Name Orbit -Force
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: test-output/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbit-windows-installer
+          path: dist/Orbit-Setup-*.exe

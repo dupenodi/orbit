@@ -48,6 +48,7 @@ function renderPermissions(status) {
 }
 
 async function refreshPermissions() {
+  if (!permissions.length) return
   renderPermissions(await window.orbitApp.permissions())
 }
 
@@ -56,6 +57,7 @@ async function load() {
   recorder.show(prefs)
   login.checked = prefs.openAtLogin
   permissions = info.permissions
+  document.getElementById('permissions-section').hidden = !permissions.length
   document.getElementById('version').textContent = `Orbit ${info.version}`
   permissionsNote.textContent = `In System Settings, Orbit is listed as “${info.settingsName}”. Screen Recording needs a restart of Orbit after you allow it.`
   await refreshPermissions()

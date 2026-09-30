@@ -14,9 +14,10 @@ const PERMISSION_ICONS = {
     'M3 19.6 15.6 7l1.4 1.4L4.4 21zM17 2l.9 2.1L20 5l-2.1.9L17 8l-.9-2.1L14 5l2.1-.9zM20.5 9l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6zM9 3l.6 1.4L11 5l-1.4.6L9 7l-.6-1.4L7 5l1.4-.6z',
 }
 const CHECK = 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-1.2 13.6 6.3-6.3-1.4-1.4-4.9 4.9-2.4-2.4-1.4 1.4z'
-const MODIFIER_NAMES = { '⌃': 'control', '⌥': 'option', '⇧': 'shift', '⌘': 'command' }
 
 const info = await window.orbitApp.info()
+const isMac = info.platform === 'darwin'
+document.documentElement.dataset.platform = info.platform
 let prefs = await window.prefs.get()
 const steps = info.steps
 let stepIndex = Math.max(0, steps.indexOf(new URLSearchParams(location.search).get('step')))
@@ -186,21 +187,11 @@ const keycaps = $('#keycaps')
 const practicePrompt = $('#practice-prompt')
 const changeButton = $('#change-shortcut')
 
-function renderKeycaps(label) {
+function renderKeycaps(label, shortcut) {
   const recording = changeButton.classList.contains('is-recording')
   keycaps.classList.toggle('is-recording', recording)
   changeButton.textContent = recording ? 'Press your keys…' : 'Change shortcut'
-  const caps = []
-  if (label === 'Recording…') {
-    caps.push(['…', 'press keys'])
-  } else {
-    const chars = [...label]
-    while (chars.length && MODIFIER_NAMES[chars[0]]) {
-      const symbol = chars.shift()
-      caps.push([symbol, MODIFIER_NAMES[symbol]])
-    }
-    if (chars.length) caps.push([chars.join(''), ''])
-  }
+  const caps = shortcut ? shortcutParts(shortcut) : [['…', 'press keys']]
   keycaps.replaceChildren(
     ...caps.map(([symbol, name]) => {
       const cap = make('div', 'keycap')
@@ -277,7 +268,9 @@ window.addEventListener('blur', syncPractice)
 // ---- Ready ------------------------------------------------------------------
 
 function renderReady() {
-  $('#ready-lede').textContent = `It stays out of sight until you hold ${prefs.shortcutLabel}. Click its icon anytime for settings, permissions, and this guide.`
+  $('#ready-lede').textContent = isMac
+    ? `It stays out of sight until you hold ${prefs.shortcutLabel}. Click its icon anytime for settings, permissions, and this guide.`
+    : `It stays out of sight until you hold ${prefs.shortcutLabel}. Click its icon in the system tray (under ^ if it’s hidden) for settings and this guide.`
   $('#menu-hold').textContent = `Hold ${prefs.shortcutLabel} to open the wheel`
   $('#clock').textContent = new Date().toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 }
@@ -391,6 +384,10 @@ steps.forEach((step, index) => {
   dots.append(dot)
 })
 
+if (!isMac) {
+  $('#ready-title').textContent = 'Orbit lives in your system tray.'
+  $('#settings-key').textContent = 'Ctrl+,'
+}
 renderSlots()
 recorder.show(prefs)
 renderReady()

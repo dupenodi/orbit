@@ -1,14 +1,17 @@
 // Turns a button into a hold-shortcut recorder: click, hold the combo, release.
 // Shared by Settings and onboarding; needs shortcut.js and window.prefs.
+// `render` gets the label and, when there is one, the shortcut it describes.
 function createShortcutRecorder({ button, help, idleHelp, render = (label) => (button.textContent = label), onChange }) {
   let recording = false
   let peak = null
   let savedLabel = button.textContent
+  let savedShortcut = null
 
   function show(prefs) {
     savedLabel = prefs.shortcutLabel
+    savedShortcut = prefs.shortcut
     if (recording) return
-    render(prefs.shortcutLabel)
+    render(prefs.shortcutLabel, prefs.shortcut)
     if (help) help.textContent = idleHelp
   }
 
@@ -36,7 +39,7 @@ function createShortcutRecorder({ button, help, idleHelp, render = (label) => (b
       return
     }
     if (help) help.textContent = 'Choose at least one modifier, or a key.'
-    render(savedLabel)
+    render(savedLabel, savedShortcut)
     await window.prefs.cancelRecord()
   }
 
@@ -75,7 +78,7 @@ function createShortcutRecorder({ button, help, idleHelp, render = (label) => (b
     }
     const shortcut = shortcutFromEvent(event)
     peak = mergePeak(shortcut)
-    render(formatShortcut(peak))
+    render(formatShortcut(peak), peak)
     if (shortcut.code && isValidShortcut(shortcut)) await commit(shortcut)
   })
 
