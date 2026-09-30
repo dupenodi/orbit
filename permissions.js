@@ -88,4 +88,15 @@ async function requestPermission(id) {
   return permissionStatus()
 }
 
-module.exports = { PERMISSIONS, missingPermissions, openPane, permissionStatus, requestPermission }
+// Windows has no per-app privacy switches for any of this, so there's nothing to ask for.
+if (process.platform === 'darwin') {
+  module.exports = { PERMISSIONS, missingPermissions, openPane, permissionStatus, requestPermission }
+} else {
+  module.exports = {
+    PERMISSIONS: [],
+    missingPermissions: () => [],
+    openPane: () => {},
+    permissionStatus: async () => ({}),
+    requestPermission: async () => ({}),
+  }
+}

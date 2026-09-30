@@ -2,7 +2,9 @@ const {
   app,
   BrowserWindow,
   Menu,
+  Notification,
   Tray,
+  nativeImage,
   ipcMain,
   screen,
   shell,
@@ -22,7 +24,10 @@ const { ensureWheelsFile, runAction, wheelFor } = require('./actions')
 const { onTimerChange, timeLeft, toggleTimer } = require('./timer')
 const { PERMISSIONS, missingPermissions, openPane, permissionStatus, requestPermission } = require('./permissions')
 
-const ONBOARDING_STEPS = ['welcome', 'wheel', 'permissions', 'shortcut', 'ready']
+// Windows has no permissions to walk through.
+const ONBOARDING_STEPS = ['welcome', 'wheel', 'permissions', 'shortcut', 'ready'].filter(
+  (step) => step !== 'permissions' || PERMISSIONS.length,
+)
 
 let overlay
 let settings
@@ -39,6 +44,10 @@ let pointerTimer
 
 function isMac() {
   return process.platform === 'darwin'
+}
+
+function isWindows() {
+  return process.platform === 'win32'
 }
 
 function prefsFile() {
@@ -88,7 +97,9 @@ function warpPointer(point) {
   if (!watcher?.stdin?.writable) return
   clearTimeout(warpPending)
   warpPending = setTimeout(() => (warpPending = null), 80)
-  watcher.stdin.write(`warp ${Math.round(point.x)} ${Math.round(point.y)}\n`)
+  // The Windows watcher moves the pointer in real pixels; Electron works in DIPs.
+  const target = isWindows() ? screen.dipToScreenPoint(point) : point
+  watcher.stdin.write(`warp ${Math.round(target.x)} ${Math.round(target.y)}\n`)
 }
 
 function relativeTo(win, point) {
@@ -181,8 +192,11 @@ function stopWatcher() {
 
 function startWatcher() {
   stopWatcher()
-  const bin = path.join(__dirname, 'bin', 'mod-watch')
-  const child = spawn(bin, watcherArgs(currentShortcut()), { stdio: ['pipe', 'pipe', 'inherit'] })
+  const args = watcherArgs(currentShortcut())
+  const [bin, argv] = isWindows()
+    ? [path.join(__dirname, 'bin', 'orbit-win.exe'), ['watch', ...args, `--parent=${process.pid}`]]
+    : [path.join(__dirname, 'bin', 'mod-watch'), args]
+  const child = spawn(bin, argv, { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true })
   watcher = child
   // If the watcher dies on its own, bring it back so the shortcut keeps working.
   child.on('exit', () => {
@@ -199,7 +213,7 @@ function startWatcher() {
   }, 400)
   child.stdout.setEncoding('utf8')
   child.stdout.on('data', (chunk) => {
-    leftover += chunk
+    leftover += chunk.replace(/\r/g, '')
     const lines = leftover.split('\n')
     leftover = lines.pop() ?? ''
     if (!ready) return
@@ -318,7 +332,8 @@ function openSettings() {
 
   settings = new BrowserWindow({
     width: 460,
-    height: 520,
+    // Without the permissions section (Windows), Settings is much shorter.
+    height: PERMISSIONS.length ? 520 : 300,
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -357,8 +372,10 @@ function openOnboarding(step = 'welcome') {
     maximizable: false,
     fullscreenable: false,
     title: 'Welcome to Orbit',
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: isMac() ? 'hiddenInset' : 'hidden',
     trafficLightPosition: { x: 18, y: 18 },
+    // Windows draws its own caption buttons over the page's dark titlebar strip.
+    ...(isMac() ? {} : { titleBarOverlay: { color: '#080a12', symbolColor: '#ffffff', height: 40 } }),
     backgroundColor: '#080a12',
     show: false,
     webPreferences: {
@@ -416,7 +433,7 @@ function buildTrayMenu() {
       : []),
     { label: `Hold ${formatShortcut(currentShortcut())} to open the wheel`, enabled: false },
     { type: 'separator' },
-    { label: 'Settings…', accelerator: 'Command+,', click: () => openSettings() },
+    { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSettings() },
     { label: 'Edit Wheels…', click: () => shell.openPath(ensureWheelsFile()) },
     { label: 'Welcome Guide…', click: () => openOnboarding() },
     {
@@ -433,22 +450,46 @@ function buildTrayMenu() {
   ])
 }
 
+// macOS wants a black template glyph for the menu bar; Windows' tray shows the app icon.
+function trayIcon() {
+  if (isMac()) return path.join(__dirname, 'assets', 'TrayIconTemplate.png')
+  return nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')).resize({ width: 32, height: 32, quality: 'best' })
+}
+
+function trayToolTip() {
+  const left = timeLeft()
+  return `Orbit · ${formatShortcut(currentShortcut())}${left ? ` · Timer ${left}` : ''}`
+}
+
+function announceTimerDone() {
+  if (isMac()) {
+    // Electron's own notifications need a signed app on macOS; osascript's always arrive.
+    execFile('/usr/bin/osascript', ['-e', 'display notification "Your timer has finished." with title "Time’s up" sound name "Glass"'])
+  } else if (Notification.isSupported()) {
+    new Notification({ title: 'Time’s up', body: 'Your timer has finished.' }).show()
+  }
+  showToast({ ok: true, title: 'Timer', message: 'Time’s up', duration: 8000 })
+}
+
 function createTray() {
-  const icon = path.join(__dirname, 'assets', 'TrayIconTemplate.png')
-  tray = new Tray(icon)
-  tray.setToolTip(`Orbit · ${formatShortcut(currentShortcut())}`)
+  tray = new Tray(trayIcon())
+  tray.setToolTip(trayToolTip())
   const refresh = () => tray.setContextMenu(buildTrayMenu())
   refresh()
   tray.on('mouse-down', refresh)
   // The menu reads cached permission state; keep it fresh for the next click.
   tray.on('mouse-up', () => permissionStatus().then(refresh))
-  // A running timer counts down beside the icon, and says so when it's done.
+  // Windows only opens a tray menu on right-click; open it on a left-click too.
+  tray.on('click', () => {
+    if (!isWindows()) return
+    tray.popUpContextMenu(buildTrayMenu())
+  })
+  tray.on('right-click', refresh)
+  // A running timer counts down beside the icon (macOS) or in its tooltip, and says so when it's done.
   onTimerChange(({ left, finished }) => {
-    tray.setTitle(left ? ` ${left}` : '', { fontType: 'monospacedDigit' })
-    if (!finished) return
-    // Electron's own notifications need a signed app; osascript's always arrive.
-    execFile('/usr/bin/osascript', ['-e', 'display notification "Your timer has finished." with title "Time’s up" sound name "Glass"'])
-    showToast({ ok: true, title: 'Timer', message: 'Time’s up', duration: 8000 })
+    if (isMac()) tray.setTitle(left ? ` ${left}` : '', { fontType: 'monospacedDigit' })
+    else tray.setToolTip(trayToolTip())
+    if (finished) announceTimerDone()
   })
 }
 
@@ -461,7 +502,7 @@ function createAppMenu() {
             submenu: [
               { label: 'About Orbit', click: () => showAbout() },
               { type: 'separator' },
-              { label: 'Settings…', accelerator: 'Command+,', click: () => openSettings() },
+              { label: 'Settings…', accelerator: 'CommandOrControl+,', click: () => openSettings() },
               { type: 'separator' },
               { role: 'hide' },
               { role: 'hideOthers' },
@@ -500,7 +541,7 @@ ipcMain.handle('prefs:setShortcut', (_event, raw) => {
   const shortcut = normalizeShortcut(raw)
   writePrefs({ ...readPrefs(), shortcut })
   startWatcher()
-  tray?.setToolTip(`Orbit · ${formatShortcut(shortcut)}`)
+  tray?.setToolTip(trayToolTip())
   tray?.setContextMenu(buildTrayMenu())
   return { ok: true, ...publicPrefs() }
 })
@@ -518,6 +559,7 @@ ipcMain.handle('prefs:setOpenAtLogin', (_event, openAtLogin) => {
 
 ipcMain.handle('app:info', () => ({
   version: app.getVersion(),
+  platform: process.platform,
   // Unpackaged, macOS lists Orbit as "Electron" in Privacy & Security.
   settingsName: app.isPackaged ? 'Orbit' : 'Electron',
   permissions: PERMISSIONS.map(({ id, title, why }) => ({ id, title, why })),
@@ -564,6 +606,8 @@ ipcMain.on('practice:set', (event, on) => {
 })
 
 app.setName('Orbit')
+// Windows ties notifications and taskbar identity to this; it matches the installer's.
+if (isWindows()) app.setAppUserModelId('com.dupenodi.orbit')
 app.setAboutPanelOptions({
   applicationName: 'Orbit',
   applicationVersion: app.getVersion(),

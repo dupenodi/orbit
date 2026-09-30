@@ -4,14 +4,17 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { fileURLToPath } = require('node:url')
+const { runBuiltin } = require('./builtins')
+const { pickFromScreen } = require('./capture')
 const { timeLeft, toggleTimer } = require('./timer')
 
 const DEFAULT_WHEELS = path.join(__dirname, 'default-wheels.json')
-const HELPERS = path.join(__dirname, 'helpers')
+const IS_WIN = process.platform === 'win32'
+const HELPERS = path.join(__dirname, IS_WIN ? 'win' : 'helpers')
 const OSASCRIPT_TIMEOUT_MS = 3_000
 const SHELL_TIMEOUT_MS = 60_000
 // Apps launched from a login item get a bare PATH; add the usual tool dirs.
-const EXTRA_PATH = ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.local/bin')]
+const EXTRA_PATH = IS_WIN ? [] : ['/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.local/bin')]
 
 function wheelsFile() {
   return path.join(app.getPath('userData'), 'wheels.json')
@@ -34,10 +37,10 @@ function loadWheels() {
 }
 
 // VS Code-family editors record their open folders in storage.json. Match the
-// focused window's title ("file — folder") against them; without a title, use
-// the editor's last active window.
+// focused window's title ("file — folder" on macOS, "file - folder" on Windows)
+// against them; without a title, use the editor's last active window.
 function resolveVSCodeProject(appDir, title) {
-  const storage = path.join(os.homedir(), 'Library', 'Application Support', appDir, 'User', 'globalStorage', 'storage.json')
+  const storage = path.join(app.getPath('appData'), appDir, 'User', 'globalStorage', 'storage.json')
   let state
   try {
     state = JSON.parse(fs.readFileSync(storage, 'utf8')).windowsState ?? {}
@@ -47,7 +50,7 @@ function resolveVSCodeProject(appDir, title) {
   const toPath = (win) => (win?.folder?.startsWith('file://') ? fileURLToPath(win.folder) : null)
   const folders = (state.openedWindows ?? []).map(toPath).filter(Boolean)
   if (title) {
-    const parts = title.split(' — ').map((part) => part.trim())
+    const parts = title.split(/ [—-] /).map((part) => part.trim())
     const match = folders.find((folder) => parts.includes(path.basename(folder)))
     if (match) return match
   }
@@ -58,9 +61,12 @@ function resolveVSCodeProject(appDir, title) {
 // can work where you are. Editors are read from disk when the wheel
 // opens; Finder is asked over Apple Events only when a slot runs, so the wheel
 // never waits on it.
+// Keyed by bundle id on macOS and by exe name on Windows.
 const EDITORS = {
   'com.todesktop.230313mzl4w4u92': 'Cursor',
   'com.microsoft.VSCode': 'Code',
+  'cursor.exe': 'Cursor',
+  'code.exe': 'Code',
 }
 const FINDER = 'com.apple.finder'
 
@@ -104,7 +110,8 @@ async function withLiveContext(context) {
 // A running timer turns its slot into the way to stop it, showing what's left.
 function withLiveState(slot) {
   const left = timeLeft()
-  if (slot.run?.type !== 'timer' || !left) return slot
+  const isTimer = slot.run?.type === 'timer' || (slot.run?.type === 'builtin' && slot.run.action === 'timer')
+  if (!isTimer || !left) return slot
   return { ...slot, label: 'Stop Timer', caption: `${left} left` }
 }
 
@@ -141,12 +148,19 @@ function lastLine(text) {
   return text.split('\n').map((line) => line.trim()).filter(Boolean).at(-1) ?? ''
 }
 
+// Commands run in a login zsh on macOS and in PowerShell on Windows.
+function shellCommand(cmd) {
+  if (IS_WIN) return ['powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', cmd]]
+  return ['/bin/zsh', ['-lc', cmd]]
+}
+
 function runShell(run, context) {
   const vars = contextEnv(context)
-  const env = { ...process.env, ...vars, PATH: [...EXTRA_PATH, process.env.PATH].join(':') }
+  const env = { ...process.env, ...vars, PATH: [...EXTRA_PATH, process.env.PATH].join(path.delimiter) }
   const cwd = context.project && fs.existsSync(context.project) ? context.project : os.homedir()
+  const [file, args] = shellCommand(run.cmd)
   return new Promise((resolve) => {
-    const child = spawn('/bin/zsh', ['-lc', run.cmd], { cwd, env, timeout: SHELL_TIMEOUT_MS })
+    const child = spawn(file, args, { cwd, env, timeout: SHELL_TIMEOUT_MS, windowsHide: true })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (chunk) => (stdout += chunk))
@@ -189,7 +203,8 @@ async function runUrl(run, context) {
 async function runAction(slot, frontContext) {
   const run = slot.run
   if (!run) return { ok: false, message: 'Nothing assigned yet. Add it in wheels.json.' }
-  const context = await withLiveContext(frontContext)
+  // Only commands see Finder's folder and selection; asking Finder costs a round trip.
+  const context = run.type === 'shell' || run.type === 'url' ? await withLiveContext(frontContext) : frontContext
   switch (run.type) {
     case 'shell':
       return runShell(run, context)
@@ -197,6 +212,8 @@ async function runAction(slot, frontContext) {
       return runUrl(run, context)
     case 'shortcut':
       return runShortcut(run)
+    case 'builtin':
+      return runBuiltin(run, context, { runShell, pick: pickFromScreen })
     case 'timer':
       return toggleTimer(run.minutes ?? 25)
     default:

@@ -1,3 +1,9 @@
+// Runs in main (Node) and in pages (as a plain script), so sniff the platform either way.
+const IS_MAC =
+  typeof process !== 'undefined' && process.platform
+    ? process.platform === 'darwin'
+    : /Mac/.test(navigator.platform)
+
 const DEFAULT_SHORTCUT = {
   control: true,
   option: true,
@@ -20,8 +26,8 @@ const MOD_CODES = new Set([
 const KEY_LABELS = {
   Space: 'Space',
   Tab: 'Tab',
-  Enter: 'Return',
-  Backspace: 'Delete',
+  Enter: IS_MAC ? 'Return' : 'Enter',
+  Backspace: IS_MAC ? 'Delete' : 'Backspace',
   ArrowUp: '↑',
   ArrowDown: '↓',
   ArrowLeft: '←',
@@ -63,17 +69,29 @@ function isValidShortcut(shortcut) {
   return mods >= 1
 }
 
+// Each modifier as [mac symbol, mac name, Windows name]. On Windows, option is Alt
+// and command is the Windows key.
+const MODIFIERS = [
+  ['control', '⌃', 'control', 'Ctrl'],
+  ['option', '⌥', 'option', 'Alt'],
+  ['shift', '⇧', 'shift', 'Shift'],
+  ['command', '⌘', 'command', 'Win'],
+]
+
+// The shortcut as keycaps: [label, small caption] pairs, e.g. ['⌃', 'control'] or ['Ctrl', ''].
+function shortcutParts(shortcut) {
+  if (!shortcut) return []
+  const parts = MODIFIERS.filter(([key]) => shortcut[key]).map(([, symbol, name, win]) =>
+    IS_MAC ? [symbol, name] : [win, ''],
+  )
+  if (shortcut.code) parts.push([KEY_LABELS[shortcut.code] || shortcut.code.replace(/^Key|^Digit/, ''), ''])
+  return parts
+}
+
 function formatShortcut(shortcut) {
-  if (!shortcut) return 'None'
-  let text = ''
-  if (shortcut.control) text += '⌃'
-  if (shortcut.option) text += '⌥'
-  if (shortcut.shift) text += '⇧'
-  if (shortcut.command) text += '⌘'
-  if (shortcut.code) {
-    text += KEY_LABELS[shortcut.code] || shortcut.code.replace(/^Key|^Digit/, '')
-  }
-  return text || 'None'
+  const parts = shortcutParts(shortcut).map(([label]) => label)
+  if (!parts.length) return 'None'
+  return parts.join(IS_MAC ? '' : '+')
 }
 
 function watcherArgs(shortcut) {
@@ -104,6 +122,7 @@ if (typeof module !== 'undefined') {
     shortcutFromEvent,
     isValidShortcut,
     formatShortcut,
+    shortcutParts,
     watcherArgs,
     normalizeShortcut,
   }
