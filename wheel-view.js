@@ -108,8 +108,8 @@ export function createWheelView(root, slots) {
 
     const mx = CX + Math.cos(center) * MID
     const my = CY + Math.sin(center) * MID
-    const iy = slot.caption ? my - 12 : my
-    const icon = icons[slot.id]
+    const iy = my - 12
+    const icon = icons[slot.icon]
     if (icon) {
       const scale = ICON_SIZE / 24
       const offset = ICON_SIZE / 2
@@ -123,15 +123,13 @@ export function createWheelView(root, slots) {
       )
     } else {
       const glyph = el('text', { class: 'icon-text', x: mx, y: iy, 'text-anchor': 'middle', 'dominant-baseline': 'central' })
-      glyph.textContent = slot.glyph
+      glyph.textContent = slot.glyph ?? slot.label.slice(0, 1)
       pop.append(glyph)
     }
 
-    if (slot.caption) {
-      const caption = el('text', { class: 'caption', x: mx, y: my + 28, 'text-anchor': 'middle', 'dominant-baseline': 'central' })
-      caption.textContent = slot.caption
-      pop.append(caption)
-    }
+    const name = el('text', { class: 'caption', x: mx, y: my + 28, 'text-anchor': 'middle', 'dominant-baseline': 'central' })
+    name.textContent = slot.label
+    pop.append(name)
 
     group.append(pop)
     svg.append(group)
@@ -152,6 +150,39 @@ export function createWheelView(root, slots) {
   spinArc(0)
   spinNotch(0)
   let wasOpen = false
+  let shownIndex = null
+  let arcDeg = null
+
+  // The notch follows the pointer through a short exponential ease, stepped once
+  // per display frame, so it glides instead of jumping between pointer samples.
+  let notchDeg = 0
+  let notchTarget = 0
+  let frame = 0
+  let lastTime = 0
+
+  function glide(now) {
+    const dt = lastTime ? Math.min(now - lastTime, 64) : 16
+    lastTime = now
+    notchDeg += (notchTarget - notchDeg) * (1 - Math.exp(-dt / 40))
+    const settled = Math.abs(notchTarget - notchDeg) < 0.05
+    if (settled) notchDeg = notchTarget
+    notch.style.transform = `rotate(${notchDeg}deg)`
+    frame = settled ? 0 : requestAnimationFrame(glide)
+    if (settled) lastTime = 0
+  }
+
+  function aimNotch(deg, jump) {
+    notchTarget = deg
+    if (jump || !motionDuration(1)) {
+      cancelAnimationFrame(frame)
+      frame = 0
+      lastTime = 0
+      notchDeg = deg
+      notch.style.transform = `rotate(${deg}deg)`
+      return
+    }
+    if (!frame) frame = requestAnimationFrame(glide)
+  }
 
   function sync(state) {
     overlay.classList.toggle('is-open', state.open)
@@ -170,19 +201,23 @@ export function createWheelView(root, slots) {
     }
     wasOpen = state.open
 
-    const slot = slots[state.selectedIndex]
-    hubName.textContent = slot ? slot.label : ''
-    hubCaption.textContent = slot?.caption ?? ''
-    hubIndex.textContent = slot ? `${state.selectedIndex + 1} / ${count}` : ''
+    if (state.selectedIndex !== shownIndex) {
+      shownIndex = state.selectedIndex
+      const slot = slots[shownIndex]
+      hubName.textContent = slot ? slot.label : ''
+      hubCaption.textContent = slot?.caption ?? ''
+      hubIndex.textContent = slot ? `${shownIndex + 1} / ${count}` : ''
+      wedges.forEach((group, index) => {
+        group.classList.toggle('is-selected', index === shownIndex)
+      })
+      arcDeg = spinArc(toDeg(slotAngle(shownIndex, count) + Math.PI / 2))
+      arc.style.transform = `rotate(${arcDeg}deg)`
+    }
 
-    wedges.forEach((group, index) => {
-      group.classList.toggle('is-selected', index === state.selectedIndex)
-    })
-
-    const snapped = toDeg(slotAngle(state.selectedIndex, count) + Math.PI / 2)
-    arc.style.transform = `rotate(${spinArc(snapped)}deg)`
     const aiming = state.open && !state.inDeadzone && state.angle != null
-    notch.style.transform = `rotate(${spinNotch(aiming ? toDeg(state.angle + Math.PI / 2) : snapped)}deg)`
+    // While idle the notch rests on the selected slice; it only glides once aiming.
+    const target = spinNotch(aiming ? toDeg(state.angle + Math.PI / 2) : arcDeg)
+    aimNotch(target, !aiming)
     notch.classList.toggle('is-idle', !aiming)
   }
 

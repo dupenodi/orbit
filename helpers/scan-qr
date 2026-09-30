@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Drag over a QR code or barcode; a link opens, anything else is copied.
+exec ${0:A:h:h}/bin/grab-text codes

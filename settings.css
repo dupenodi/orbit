@@ -68,3 +68,79 @@ input[type='checkbox'] {
   height: 15px;
   accent-color: Highlight;
 }
+
+h2 {
+  margin: 18px 4px 8px;
+  color: color-mix(in srgb, CanvasText 55%, Canvas);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+h2:first-child {
+  margin-top: 0;
+}
+
+.row .help {
+  max-width: 250px;
+}
+
+.side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, CanvasText 8%, Canvas);
+  color: color-mix(in srgb, CanvasText 70%, Canvas);
+}
+
+.pill.is-granted {
+  background: color-mix(in srgb, #34c759 18%, Canvas);
+  color: color-mix(in srgb, #34c759 80%, CanvasText);
+}
+
+.pill.is-denied {
+  background: color-mix(in srgb, #ff453a 16%, Canvas);
+  color: color-mix(in srgb, #ff453a 85%, CanvasText);
+}
+
+.side button {
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
+  border-radius: 6px;
+  background: color-mix(in srgb, CanvasText 4%, Canvas);
+  color: CanvasText;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.note {
+  margin: 8px 4px 0;
+  color: color-mix(in srgb, CanvasText 50%, Canvas);
+  font-size: 11px;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 4px 0;
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: LinkText;
+  font: inherit;
+  cursor: pointer;
+}

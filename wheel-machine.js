@@ -23,6 +23,21 @@ export function indexFromAngle(angle, count, zeroAngle = TOP) {
   return Math.round(rotated / sector) % count
 }
 
+// How far past a slice's edge the pointer must go before the next slice takes over,
+// so aiming near a boundary doesn't flicker between two slices.
+export const HYSTERESIS = 0.09
+
+export function angularDistance(a, b) {
+  return wrapAngle(a - b + Math.PI) - Math.PI
+}
+
+export function pickIndex(angle, count, current, wasAiming) {
+  const index = indexFromAngle(angle, count)
+  if (!wasAiming || index === current || count <= 1) return index
+  const off = Math.abs(angularDistance(angle, slotAngle(current, count)))
+  return off < Math.PI / count + HYSTERESIS ? current : index
+}
+
 export function slotAngle(index, count, zeroAngle = TOP) {
   if (count <= 0) return zeroAngle
   return zeroAngle + index * (TWO_PI / count)
@@ -32,7 +47,7 @@ export function initialState() {
   return {
     open: false,
     selectedIndex: 0,
-    confirmedId: null,
+    confirmedIndex: null,
     origin: { x: 0, y: 0 },
     pointer: null,
     angle: null,
@@ -64,7 +79,7 @@ export function reduce(state, action, config) {
       const inDeadzone = polar.distance < config.deadzone
       const selectedIndex = inDeadzone
         ? state.selectedIndex
-        : indexFromAngle(polar.angle, slots.length)
+        : pickIndex(polar.angle, slots.length, state.selectedIndex, !state.inDeadzone)
       return {
         ...state,
         pointer: { x: action.x, y: action.y },
@@ -77,11 +92,12 @@ export function reduce(state, action, config) {
 
     case 'close': {
       if (!state.open) return state
-      const slot = slots[state.selectedIndex]
+      // Releasing without aiming (still in the deadzone) fires nothing.
+      const aimed = !state.inDeadzone && slots[state.selectedIndex] != null
       return {
         ...state,
         open: false,
-        confirmedId: slot ? slot.id : null,
+        confirmedIndex: aimed ? state.selectedIndex : null,
         pointer: null,
         angle: null,
         distance: 0,

@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Presses the play/pause media key.
+exec ${0:A:h:h}/bin/media-key

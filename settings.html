@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
+    <h2>General</h2>
     <section class="group">
       <div class="row">
         <div>
@@ -23,7 +24,17 @@
         <input id="login" type="checkbox" />
       </div>
     </section>
+
+    <h2>Permissions</h2>
+    <section class="group" id="permissions" aria-live="polite"></section>
+    <p class="note" id="permissions-note"></p>
+
+    <footer>
+      <p class="help" id="version">Orbit</p>
+      <button type="button" class="link" id="guide">Welcome Guide</button>
+    </footer>
     <script src="shortcut.js"></script>
+    <script src="shortcut-recorder.js"></script>
     <script src="settings.js"></script>
   </body>
 </html>

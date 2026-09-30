@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
 
 struct Config {
@@ -72,12 +73,14 @@ final class Watcher: NSObject {
   }
 
   @objc func tick() {
+    // Orphaned (Orbit crashed or was force-quit): don't linger in the background.
+    if getppid() == 1 { exit(0) }
     let held = isHeld(config)
     if held {
       heldTicks += 1
       if !last && heldTicks >= 4 {
         last = true
-        write("down")
+        write(frontContext())
       }
       return
     }
@@ -88,12 +91,59 @@ final class Watcher: NSObject {
     }
   }
 
-  private func write(_ line: String) {
-    FileHandle.standardOutput.write((line + "\n").data(using: .utf8)!)
-    fflush(stdout)
+}
+
+func write(_ line: String) {
+  FileHandle.standardOutput.write((line + "\n").data(using: .utf8)!)
+}
+
+// "down<TAB>bundle id<TAB>focused window title". The title needs Accessibility
+// permission; without it the field is empty and Orbit falls back to app state.
+func frontContext() -> String {
+  guard let app = NSWorkspace.shared.frontmostApplication else { return "down" }
+  let bundle = app.bundleIdentifier ?? ""
+  var title = ""
+  if AXIsProcessTrusted() {
+    let axApp = AXUIElementCreateApplication(app.processIdentifier)
+    var window: CFTypeRef?
+    if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &window) == .success,
+      let window
+    {
+      var value: CFTypeRef?
+      if AXUIElementCopyAttributeValue(window as! AXUIElement, kAXTitleAttribute as CFString, &value) == .success,
+        let text = value as? String
+      {
+        title = text.components(separatedBy: .newlines).joined(separator: " ").replacingOccurrences(of: "\t", with: " ")
+      }
+    }
+  }
+  return "down\t\(bundle)\t\(title)"
+}
+
+// Orbit writes "warp x y" (global points, top-left origin) when the wheel had to be
+// nudged away from a screen edge, so the cursor starts in the middle of the hub.
+func listenForCommands() {
+  var pending = ""
+  FileHandle.standardInput.readabilityHandler = { handle in
+    let data = handle.availableData
+    if data.isEmpty { exit(0) }
+    pending += String(decoding: data, as: UTF8.self)
+    var lines = pending.components(separatedBy: "\n")
+    pending = lines.removeLast()
+    DispatchQueue.main.async {
+      for line in lines {
+        let parts = line.split(separator: " ")
+        guard parts.count == 3, parts[0] == "warp", let x = Double(parts[1]), let y = Double(parts[2]) else { continue }
+        CGWarpMouseCursorPosition(CGPoint(x: x, y: y))
+        // Without this, macOS freezes the pointer for ~250ms after a warp.
+        CGAssociateMouseAndMouseCursorPosition(1)
+        write("warped")
+      }
+    }
   }
 }
 
+listenForCommands()
 let watcher = Watcher(config: parseConfig())
 Timer.scheduledTimer(timeInterval: 0.008, target: watcher, selector: #selector(Watcher.tick), userInfo: nil, repeats: true)
 RunLoop.main.run()

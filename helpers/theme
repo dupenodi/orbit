@@ -1,0 +1,7 @@
+#!/bin/zsh
+# Switches macOS between light and dark mode.
+dark=$(osascript -e 'tell application "System Events" to tell appearance preferences
+  set dark mode to not dark mode
+  return dark mode
+end tell') || exit 1
+[[ $dark == true ]] && echo "Switched to dark" || echo "Switched to light"

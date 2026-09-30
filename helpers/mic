@@ -1,0 +1,11 @@
+#!/bin/zsh
+# Toggles the input volume, restoring the level it had before muting.
+saved=${TMPDIR:-/tmp}/orbit-mic-level
+level=$(osascript -e 'input volume of (get volume settings)')
+if (( level > 0 )); then
+  print $level > $saved
+  osascript -e 'set volume input volume 0' && echo "Muted"
+else
+  restore=$(cat $saved 2>/dev/null)
+  osascript -e "set volume input volume ${restore:-75}" && echo "Unmuted"
+fi

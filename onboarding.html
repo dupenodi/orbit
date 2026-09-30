@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'"
+    />
+    <title>Welcome to Orbit</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="onboarding.css" />
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true">
+      <div class="orbit orbit-1"><span></span></div>
+      <div class="orbit orbit-2"><span></span></div>
+      <div class="orbit orbit-3"><span></span></div>
+    </div>
+    <div class="titlebar"></div>
+
+    <!-- One live wheel, moved into whichever scene needs it. -->
+    <template id="wheel-template">
+      <div id="overlay">
+        <div id="wheel">
+          <svg id="ring" aria-hidden="true"></svg>
+          <div class="hub">
+            <p id="hub-name"></p>
+            <p id="hub-caption"></p>
+            <p id="hub-index"></p>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <main class="scenes">
+      <section class="scene" data-step="welcome">
+        <div class="copy">
+          <img class="mark" src="assets/icon.svg" alt="" />
+          <p class="eyebrow">Welcome to Orbit</p>
+          <h1>Your Mac’s handiest tools, one flick away.</h1>
+          <p class="lede">
+            Hold a shortcut, flick toward what you need, let go. Orbit keeps eight everyday tools right under your
+            cursor, in every app.
+          </p>
+        </div>
+        <div class="visual">
+          <div class="wheel-dock" data-dock="welcome"></div>
+          <svg class="ghost-cursor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3v16.5l4.6-4.4 3 6.4 2.8-1.3-3-6.3H19z" />
+          </svg>
+        </div>
+      </section>
+
+      <section class="scene scene-stack" data-step="wheel">
+        <div class="copy">
+          <p class="eyebrow">Your wheel</p>
+          <h1>Eight tools. No hunting.</h1>
+          <p class="lede">
+            Each slice is a small job you’d otherwise dig through menus for. Swap them out anytime in
+            <code>wheels.json</code>.
+          </p>
+        </div>
+        <ul class="slot-grid" id="slot-grid"></ul>
+      </section>
+
+      <section class="scene" data-step="permissions">
+        <div class="copy">
+          <p class="eyebrow">Permissions</p>
+          <h1>Let Orbit lend a hand.</h1>
+          <p class="lede">
+            macOS asks before any app can see your windows or screen. Orbit only uses these when you pick an action.
+          </p>
+          <p class="privacy">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 10h14v12H5zM11 14v4h2v-4zM7 10V7a5 5 0 0 1 10 0v3h-2V7a3 3 0 0 0-6 0v3z" fill-rule="evenodd" />
+            </svg>
+            <span>Everything runs on your Mac. Nothing leaves it.</span>
+          </p>
+        </div>
+        <div class="visual visual-list">
+          <ul class="permission-list" id="permission-list"></ul>
+          <p class="hint" id="permission-hint"></p>
+          <div class="restart" id="restart" hidden>
+            <p>Allowed Screen Recording? macOS applies it after Orbit restarts.</p>
+            <button type="button" class="button small" id="restart-button">Restart Orbit</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" data-step="shortcut">
+        <div class="copy">
+          <p class="eyebrow">Give it a spin</p>
+          <h1>Hold. Flick. Release.</h1>
+          <div class="keycaps" id="keycaps" aria-live="polite"></div>
+          <ol class="how">
+            <li><span><b>Hold</b> your shortcut anywhere. The wheel opens around your cursor.</span></li>
+            <li><span><b>Flick</b> the mouse toward a slice.</span></li>
+            <li><span><b>Release</b> to run it. Let go in the middle to cancel.</span></li>
+          </ol>
+          <button type="button" class="button small ghost" id="change-shortcut">Change shortcut</button>
+          <p class="hint" id="shortcut-help"></p>
+        </div>
+        <div class="visual">
+          <div class="wheel-dock is-idle" data-dock="practice"></div>
+          <p class="practice-prompt" id="practice-prompt"></p>
+        </div>
+      </section>
+
+      <section class="scene" data-step="ready">
+        <div class="copy">
+          <p class="eyebrow">You’re all set</p>
+          <h1>Orbit lives in your menu bar.</h1>
+          <p class="lede" id="ready-lede"></p>
+          <label class="switch">
+            <input type="checkbox" id="open-at-login" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span>Open Orbit when I log in</span>
+          </label>
+        </div>
+        <div class="visual">
+          <div class="menubar-scene" aria-hidden="true">
+            <div class="menubar">
+              <span class="apple"></span>
+              <b>Finder</b><span>File</span><span>Edit</span><span>View</span>
+              <span class="spacer"></span>
+              <span class="tray-icon"><img src="assets/TrayIconTemplate@2x.png" alt="" /></span>
+              <span class="status-glyph wifi"></span>
+              <span class="status-glyph battery"></span>
+              <span class="clock" id="clock"></span>
+            </div>
+            <div class="menu" id="menu-mock">
+              <p class="menu-disabled" id="menu-hold"></p>
+              <hr />
+              <p>Settings… <kbd>⌘,</kbd></p>
+              <p>Edit Wheels…</p>
+              <p>Welcome Guide…</p>
+              <p><span class="check">✓</span> Open at Login</p>
+              <hr />
+              <p>About Orbit</p>
+              <p>Quit Orbit</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="footer">
+      <div class="dots" id="dots"></div>
+      <div class="actions">
+        <button type="button" class="button ghost" id="back">Back</button>
+        <button type="button" class="button primary" id="next">Get started</button>
+      </div>
+    </nav>
+
+    <script src="node_modules/gsap/dist/gsap.min.js"></script>
+    <script src="shortcut.js"></script>
+    <script src="shortcut-recorder.js"></script>
+    <script type="module" src="onboarding.js"></script>
+  </body>
+</html>

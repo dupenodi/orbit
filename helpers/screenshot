@@ -1,0 +1,9 @@
+#!/bin/zsh
+# Drag a region; the image lands on the clipboard. screencapture -c exits 0
+# even when cancelled, so capture to a file and check it exists.
+shot=${TMPDIR:-/tmp}/orbit-shot-$$.png
+screencapture -i $shot
+[[ -f $shot ]] || { echo "Cancelled" >&2; exit 1 }
+osascript -e "set the clipboard to (read (POSIX file \"$shot\") as «class PNGf»)"
+rm -f $shot
+echo "Copied to clipboard"

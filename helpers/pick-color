@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Pick any pixel on screen; its hex colour lands on the clipboard.
+exec ${0:A:h:h}/bin/pick-color

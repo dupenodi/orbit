@@ -1,11 +1,13 @@
 {
   "name": "orbit",
   "version": "0.1.0",
-  "description": "Orbit",
+  "description": "Hold a shortcut, flick toward an action, release.",
   "productName": "Orbit",
   "main": "main.js",
   "scripts": {
-    "start": "node scripts/ensure-mod-watch.js && electron ."
+    "start": "node scripts/ensure-mod-watch.js && electron .",
+    "icon": "mkdir -p build && swiftc -O -o bin/make-app-icon scripts/make-app-icon.swift && bin/make-app-icon assets/icon.svg build/icon.icns",
+    "dist": "node scripts/ensure-mod-watch.js && npm run icon && electron-builder --mac"
   },
   "author": "dupenodi",
   "license": "MIT",
@@ -14,6 +16,46 @@
     "gsap": "^3.15.0"
   },
   "devDependencies": {
-    "electron": "^44.4.5"
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.dupenodi.orbit",
+    "productName": "Orbit",
+    "copyright": "© 2026 dupenodi",
+    "asar": false,
+    "files": [
+      "**/*",
+      "!**/*.swift",
+      "!scripts/**",
+      "!build/**",
+      "!dist/**",
+      "!NOTES.md",
+      "!bin/make-app-icon"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dir"
+        },
+        {
+          "target": "zip"
+        },
+        {
+          "target": "dmg"
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSAppleEventsUsageDescription": "Orbit asks System Events to switch light and dark mode, and Finder for its current folder."
+      }
+    },
+    "directories": {
+      "output": "dist"
+    }
   }
 }

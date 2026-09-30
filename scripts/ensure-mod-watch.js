@@ -14,6 +14,23 @@ rebuild(
   path.join(root, 'bin', 'mod-watch'),
   ['-O', '-o', path.join(root, 'bin', 'mod-watch'), path.join(root, 'mod-watch.swift')],
 )
+rebuild(
+  path.join(root, 'grab-text.swift'),
+  path.join(root, 'bin', 'grab-text'),
+  ['-O', '-o', path.join(root, 'bin', 'grab-text'), path.join(root, 'grab-text.swift')],
+)
+for (const name of ['pick-color', 'media-key']) {
+  rebuild(
+    path.join(root, `${name}.swift`),
+    path.join(root, 'bin', name),
+    ['-O', '-o', path.join(root, 'bin', name), path.join(root, `${name}.swift`)],
+  )
+}
+rebuild(
+  path.join(root, 'permissions.swift'),
+  path.join(root, 'bin', 'permissions'),
+  ['-O', '-o', path.join(root, 'bin', 'permissions'), path.join(root, 'permissions.swift')],
+)
 
 const traySrc = path.join(__dirname, 'make-tray-icon.swift')
 const trayOut = path.join(root, 'assets', 'TrayIconTemplate.png')

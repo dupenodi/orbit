@@ -1,114 +1,73 @@
-const shortcutButton = document.getElementById('shortcut')
-const shortcutHelp = document.getElementById('shortcut-help')
 const login = document.getElementById('login')
+const permissionList = document.getElementById('permissions')
+const permissionsNote = document.getElementById('permissions-note')
 
-let recording = false
-let peak = null
-let savedLabel = '⌃⌥'
+const recorder = createShortcutRecorder({
+  button: document.getElementById('shortcut'),
+  help: document.getElementById('shortcut-help'),
+  idleHelp: 'Click, then press the keys to hold.',
+})
 
-function showPrefs(prefs) {
-  savedLabel = prefs.shortcutLabel
-  login.checked = prefs.openAtLogin
-  if (!recording) {
-    shortcutButton.textContent = prefs.shortcutLabel
-    shortcutHelp.textContent = 'Click, then press the keys to hold.'
-  }
+const STATUS_TEXT = { granted: 'Allowed', needed: 'Not set up', denied: 'Turned off', unknown: 'Unknown' }
+let permissions = []
+
+function renderPermissions(status) {
+  permissionList.replaceChildren(
+    ...permissions.map(({ id, title, why }) => {
+      const state = status[id] ?? 'unknown'
+      const row = document.createElement('div')
+      row.className = 'row'
+      const text = document.createElement('div')
+      const name = document.createElement('p')
+      name.className = 'label'
+      name.textContent = title
+      const help = document.createElement('p')
+      help.className = 'help'
+      help.textContent = why
+      text.append(name, help)
+
+      const side = document.createElement('div')
+      side.className = 'side'
+      const pill = document.createElement('span')
+      pill.className = `pill is-${state}`
+      pill.textContent = STATUS_TEXT[state]
+      side.append(pill)
+      if (state !== 'granted') {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.textContent = state === 'needed' ? 'Allow…' : 'Open Settings'
+        button.addEventListener('click', async () => {
+          renderPermissions(await window.orbitApp.requestPermission(id))
+        })
+        side.append(button)
+      }
+      row.append(text, side)
+      return row
+    }),
+  )
+}
+
+async function refreshPermissions() {
+  renderPermissions(await window.orbitApp.permissions())
 }
 
 async function load() {
-  showPrefs(await window.prefs.get())
+  const [prefs, info] = await Promise.all([window.prefs.get(), window.orbitApp.info()])
+  recorder.show(prefs)
+  login.checked = prefs.openAtLogin
+  permissions = info.permissions
+  document.getElementById('version').textContent = `Orbit ${info.version}`
+  permissionsNote.textContent = `In System Settings, Orbit is listed as “${info.settingsName}”. Screen Recording needs a restart of Orbit after you allow it.`
+  await refreshPermissions()
 }
-
-async function stopRecording(restore) {
-  recording = false
-  peak = null
-  shortcutButton.classList.remove('is-recording')
-  if (restore) {
-    const prefs = await window.prefs.cancelRecord()
-    showPrefs(prefs)
-    return
-  }
-  shortcutHelp.textContent = 'Click, then press the keys to hold.'
-}
-
-async function commit(shortcut) {
-  recording = false
-  peak = null
-  shortcutButton.classList.remove('is-recording')
-  const result = await window.prefs.setShortcut(shortcut)
-  if (result.ok) {
-    showPrefs(result)
-    return
-  }
-  shortcutHelp.textContent = 'Choose at least one modifier, or a key.'
-  shortcutButton.textContent = savedLabel
-  await window.prefs.cancelRecord()
-}
-
-function mergePeak(next) {
-  if (!peak) return { ...next }
-  return {
-    control: peak.control || next.control,
-    option: peak.option || next.option,
-    shift: peak.shift || next.shift,
-    command: peak.command || next.command,
-    code: next.code || peak.code,
-  }
-}
-
-function modifiersUp(event) {
-  return !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey
-}
-
-shortcutButton.addEventListener('click', async () => {
-  if (recording) {
-    await stopRecording(true)
-    return
-  }
-  recording = true
-  peak = null
-  shortcutButton.classList.add('is-recording')
-  shortcutButton.textContent = 'Recording'
-  shortcutHelp.textContent = 'Hold the combo, then release. Esc cancels.'
-  await window.prefs.beginRecord()
-  shortcutButton.focus()
-})
-
-window.addEventListener('keydown', async (event) => {
-  if (!recording) return
-  if (event.repeat) return
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (event.code === 'Escape') {
-    await stopRecording(true)
-    return
-  }
-
-  const shortcut = shortcutFromEvent(event)
-  peak = mergePeak(shortcut)
-  shortcutButton.textContent = formatShortcut(peak)
-
-  if (shortcut.code && isValidShortcut(shortcut)) {
-    await commit(shortcut)
-  }
-})
-
-window.addEventListener('keyup', async (event) => {
-  if (!recording || !peak) return
-  event.preventDefault()
-  if (!modifiersUp(event)) return
-  if (peak.code) return
-  if (!isValidShortcut(peak)) return
-  await commit(peak)
-})
 
 login.addEventListener('change', async () => {
-  showPrefs(await window.prefs.setOpenAtLogin(login.checked))
+  login.checked = (await window.prefs.setOpenAtLogin(login.checked)).openAtLogin
 })
 
-window.addEventListener('blur', () => {
-  if (recording) stopRecording(true)
-})
+document.getElementById('guide').addEventListener('click', () => window.orbitApp.openOnboarding())
+
+// Coming back from System Settings is the moment permissions change.
+window.addEventListener('focus', refreshPermissions)
 
 load()
