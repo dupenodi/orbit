@@ -1,4 +1,4 @@
-const { clipboard, shell } = require('electron')
+const { ClipboardItem, clipboard, shell } = require('electron')
 const { execFile } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
@@ -89,7 +89,8 @@ const WINDOWS = {
   async screenshot(pick) {
     const picked = await pick('region')
     if (!picked) return { ok: false, message: 'Cancelled' }
-    clipboard.writeImage(picked.image)
+    const png = new Blob([picked.image.toPNG()], { type: 'image/png' })
+    await clipboard.write([new ClipboardItem({ 'image/png': png })])
     return { ok: true, message: 'Copied to clipboard' }
   },
   async 'grab-text'(pick) {
@@ -97,7 +98,7 @@ const WINDOWS = {
     if (!picked) return { ok: false, message: 'Cancelled' }
     const text = await readText(picked.image)
     if (!text) return { ok: false, message: 'No text found' }
-    clipboard.writeText(text)
+    await clipboard.writeText(text)
     const words = text.split(/\s+/).filter(Boolean).length
     return { ok: true, message: `Copied ${words} word${words === 1 ? '' : 's'}` }
   },
@@ -110,13 +111,13 @@ const WINDOWS = {
       await shell.openExternal(payload)
       return { ok: true, message: `Opened ${new URL(payload).host}` }
     }
-    clipboard.writeText(payload)
+    await clipboard.writeText(payload)
     return { ok: true, message: `Copied ${preview(payload)}` }
   },
   async 'pick-color'(pick) {
     const picked = await pick('point')
     if (!picked) return { ok: false, message: 'Cancelled' }
-    clipboard.writeText(picked.color)
+    await clipboard.writeText(picked.color)
     return { ok: true, message: `Copied ${picked.color}` }
   },
   'switch-theme': () => winTool('theme'),

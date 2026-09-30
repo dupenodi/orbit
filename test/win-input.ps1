@@ -15,11 +15,18 @@ public static class Input {
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
 }
 '@
 [Input]::SetProcessDPIAware() | Out-Null
 
-function Move($x, $y) { [Input]::SetCursorPos($x, $y) | Out-Null; Start-Sleep -Milliseconds 30 }
+# A real (injected) absolute move, so apps see mouse movement, not just a warped cursor.
+function Move($x, $y) {
+  $w = [Input]::GetSystemMetrics(0) - 1
+  $h = [Input]::GetSystemMetrics(1) - 1
+  [Input]::mouse_event(0x8001, [int]($x * 65535 / $w), [int]($y * 65535 / $h), 0, [UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 30
+}
 function Key($vk, $up) { [Input]::keybd_event($vk, 0, $(if ($up) { 2 } else { 0 }), [UIntPtr]::Zero) }
 
 switch ($Command) {

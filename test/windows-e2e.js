@@ -1,7 +1,7 @@
 // End-to-end checks for Orbit on Windows, run by CI: `npx electron test/windows-e2e.js`.
 // Drives the real helpers and actions with simulated input, and saves screenshots
 // to test-output/ so a human can eyeball the picker and the wheel.
-const { app, BrowserWindow, clipboard, desktopCapturer, screen } = require('electron')
+const { app, BrowserWindow, clipboard, desktopCapturer, nativeImage, screen } = require('electron')
 const { execFile, spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -40,6 +40,24 @@ async function screenshot(name) {
   const [source] = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size })
   if (source) fs.writeFileSync(path.join(OUT, `${name}.png`), source.thumbnail.toPNG())
 }
+
+async function clipboardImageSize() {
+  const [item] = await clipboard.read()
+  if (!item?.types.includes('image/png')) return { width: 0, height: 0 }
+  const blob = await item.getType('image/png')
+  return nativeImage.createFromBuffer(Buffer.from(await blob.arrayBuffer())).getSize()
+}
+
+// Echo the mouse events the picker page receives, to debug input on CI.
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('did-finish-load', () => {
+    if (!contents.getURL().endsWith('capture.html')) return
+    contents.executeJavaScript(`for (const type of ['mousedown', 'mouseup']) addEventListener(type, (e) => console.log('picker', type, e.clientX, e.clientY), true)`)
+  })
+  contents.on('console-message', (event) => {
+    if (String(event.message).startsWith('picker')) console.log('      ', event.message)
+  })
+})
 
 const slot = (label, action, extra = {}) => ({ label, run: { type: 'builtin', action, ...extra } })
 
@@ -138,17 +156,17 @@ async function testOcr(target) {
 async function testSlots() {
   // Screen coordinates: the target window sits at (20, 20).
   const grab = await withInput(slot('Grab Text', 'grab-text'), () => input('drag', 30, 30, 470, 190), 'picker-region')
-  const grabbed = clipboard.readText()
+  const grabbed = await clipboard.readText()
   check('Grab Text copies text from the screen', grab.ok && /orbit/i.test(grabbed), `${grab.message} · ${JSON.stringify(grabbed)}`)
 
   const scan = await withInput(slot('Scan QR', 'scan-qr'), () => input('drag', 470, 30, 750, 310))
-  check('Scan QR reads a code', scan.ok && clipboard.readText() === 'orbit test payload 123', scan.message)
+  check('Scan QR reads a code', scan.ok && (await clipboard.readText()) === 'orbit test payload 123', scan.message)
 
   const color = await withInput(slot('Pick Color', 'pick-color'), () => input('click', 850, 150), 'picker-point')
-  check('Pick Color copies the pixel', color.ok && clipboard.readText() === '#3A7BD5', color.message)
+  check('Pick Color copies the pixel', color.ok && (await clipboard.readText()) === '#3A7BD5', color.message)
 
   const shot = await withInput(slot('Screenshot', 'screenshot'), () => input('drag', 100, 100, 500, 300))
-  const size = clipboard.readImage().getSize()
+  const size = await clipboardImageSize()
   check('Screenshot copies the region', shot.ok && size.width >= 390 && size.height >= 190, `${shot.message} · ${size.width}×${size.height}`)
 
   const cancelled = await withInput(slot('Screenshot', 'screenshot'), () => input('esc'))
