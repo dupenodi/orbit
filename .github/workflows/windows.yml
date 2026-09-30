@@ -28,17 +28,20 @@ jobs:
       - name: Wheel smoke test
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath node_modules\electron\dist\electron.exe -ArgumentList '.' -PassThru
+          New-Item -ItemType Directory -Force test-output | Out-Null
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $app = Start-Process -FilePath node_modules\electron\dist\electron.exe -ArgumentList '.' -PassThru `
+            -RedirectStandardOutput test-output\app-out.log -RedirectStandardError test-output\app-err.log
           Start-Sleep -Seconds 10
-          if ($app.HasExited) { throw 'Orbit exited on launch' }
-          if (-not (Get-Process orbit-win -ErrorAction SilentlyContinue)) { throw 'The shortcut watcher is not running' }
+          function Show-Logs { Get-Content test-output\app-out.log, test-output\app-err.log -ErrorAction SilentlyContinue | Select-Object -Last 60 }
+          if ($app.HasExited) { Show-Logs; throw 'Orbit exited on launch' }
+          if (-not (Get-Process orbit-win -ErrorAction SilentlyContinue)) { Show-Logs; throw 'The shortcut watcher is not running' }
           $hold = Start-Job { powershell -NoProfile -ExecutionPolicy Bypass -File "$using:PWD\test\win-input.ps1" hold-move 2500 700 300 }
           Start-Sleep -Milliseconds 1800
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
           [System.Drawing.Graphics]::FromImage($bitmap).CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          New-Item -ItemType Directory -Force test-output | Out-Null
           $bitmap.Save("$PWD\test-output\wheel-open.png")
           Wait-Job $hold | Receive-Job
           Start-Sleep -Seconds 2
