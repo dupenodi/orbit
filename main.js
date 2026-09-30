@@ -260,7 +260,7 @@ function createOverlay() {
 
   overlay.setAlwaysOnTop(true, 'screen-saver')
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  overlay.setHiddenInMissionControl(true)
+  if (isMac()) overlay.setHiddenInMissionControl(true)
   overlay.setMenuBarVisibility(false)
   overlay.loadFile(path.join(__dirname, 'index.html'))
   overlay.webContents.on('did-finish-load', () => {
