@@ -8,7 +8,7 @@
       { "label": "Pick Color", "caption": "As hex", "about": "Copies the color of any pixel on screen as a hex value.", "icon": "picker", "run": { "type": "builtin", "action": "pick-color" } },
       { "label": "Switch Theme", "caption": "Light or dark", "about": "Switches your Mac between light and dark mode.", "icon": "theme", "run": { "type": "builtin", "action": "switch-theme" } },
       { "label": "Play or Pause", "caption": "Any player", "about": "Plays or pauses whatever is playing, like pressing the media key.", "icon": "playpause", "run": { "type": "builtin", "action": "play-pause" } },
-      { "label": "Toggle Mic", "caption": "Mute or unmute", "about": "Mutes your microphone. Pick again to unmute.", "icon": "mute", "run": { "type": "builtin", "action": "toggle-mic" } },
+      { "label": "Toggle Mic", "caption": "Mute or unmute", "about": "Mutes your microphone. Pick again to unmute.", "icon": "mic", "run": { "type": "builtin", "action": "toggle-mic" } },
       { "label": "Start Timer", "caption": "25 minutes", "about": "Starts a 25-minute timer that ends with a notification. Pick again to cancel.", "icon": "timer", "run": { "type": "builtin", "action": "timer", "minutes": 25 } }
     ]
   }

@@ -4,8 +4,8 @@ const path = require('node:path')
 // Orbit's own screen picker, for platforms with no scriptable one (Windows): the
 // display under the pointer freezes, and you drag a region or click a pixel on it.
 
-// The wheel fades out over ~110ms; wait so it isn't in the shot.
-const SETTLE_MS = 160
+// The wheel fades out over ~170ms; wait so it isn't in the shot.
+const SETTLE_MS = 230
 
 let session = null
 

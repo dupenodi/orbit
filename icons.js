@@ -1,30 +1,82 @@
-// Flat silhouettes on a 24×24 grid, keyed by the `icon` name in wheels.json.
+// Line icons on a 24×24 grid, keyed by the `icon` name in wheels.json. Each is
+// stroked (1.75 units, round caps and joins); `fill` marks the few solid parts.
+
+const circle = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0z`
+const rect = (x, y, w, h, r) =>
+  `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1 ${-r} ${r}h${2 * r - w}a${r} ${r} 0 0 1 ${-r} ${-r}v${2 * r - h}a${r} ${r} 0 0 1 ${r} ${-r}z`
+// Round-capped zero-length strokes render as dots.
+const dot = (x, y) => `M${x} ${y}h.01`
+
 export const icons = {
-  screenshot:
-    'M9 4h6l1.5 2H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.5zM12 8.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z',
-  focus: 'M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z',
-  clipboard:
-    'M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1zm0 2v2h6V4zM8 10h8v2H8zm0 4h6v2H8z',
-  terminal: 'M2 4h20v16H2zM5 9.4 6.4 8l4 4-4 4L5 14.6 7.6 12zM12 15h6v2h-6z',
-  mute: 'M3 9h4l5-4.5v15L7 15H3zM15.6 10 17 8.6l2 2 2-2 1.4 1.4-2 2 2 2-1.4 1.4-2-2-2 2-1.4-1.4 2-2z',
-  note: 'M3 17.3V21h3.7L17.8 9.9l-3.7-3.7zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z',
-  run: 'M7 4v16l13-8z',
-  tile: 'M3 4h8v16H3zM13 4h8v7h-8zM13 13h8v7h-8z',
-  external: 'M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v8H3V5z',
-  branch:
-    'M6 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM6 15a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM18 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM5 9h2v6H5zM17 9h2v1a5 5 0 0 1-5 5H7v-2h7a3 3 0 0 0 3-3z',
-  pull: 'M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4 3.3 3.3zM4 15h2v4h12v-4h2v6H4z',
-  kill: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM8.5 7.1l3.5 3.5 3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z',
-  browser: 'M2 4h20v16H2zM4 9v9h16V9z',
-  folder: 'M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z',
-  coffee: 'M7 2h2v4H7zM11 2h2v4h-2zM3 8h13v6a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5zM16 9h2a3 3 0 0 1 0 6h-2v-2h2a1 1 0 0 0 0-2h-2zM2 20h16v2H2z',
-  sparkle: 'M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z',
-  scan: 'M3 3h6v2H5v4H3zM15 3h6v6h-2V5h-4zM3 15h2v4h4v2H3zM19 15h2v6h-6v-2h4zM7 8h10v2H7zM7 11h10v2H7zM7 14h6v2H7z',
-  solo: 'M2 3h20v14H2zM4 5v10h16V5zM8 7h8v6H8zM8 19h8v2H8z',
-  qr: 'M3 3h8v8H3zm2 2v4h4V5zM13 3h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zM6 6h2v2H6zM16 6h2v2h-2zM6 16h2v2H6zM13 13h3v3h-3zM18 13h3v3h-3zM13 18h3v3h-3zM16 16h2v2h-2zM18 18h3v3h-3z',
-  picker:
-    'M19.6 3.1a2 2 0 0 0-2.8 0l-2.6 2.6-1.4-1.4-1.4 1.4 1.4 1.4-8.1 8.1V19h3.8l8.1-8.1 1.4 1.4 1.4-1.4-1.4-1.4 2.6-2.6a2 2 0 0 0 0-2.8zM8.8 17H7v-1.8l7.4-7.4 1.8 1.8z',
-  theme: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2v16a8 8 0 0 0 0-16z',
-  playpause: 'M2 5v14l10-7zM14 5h3v14h-3zM19 5h3v14h-3z',
-  timer: 'M9 1h6v2H9zM12 4a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM11 8h2v6h-2z',
+  scan: { stroke: 'M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2M15.5 4h2A2.5 2.5 0 0 1 20 6.5v2M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M8.5 20h-2A2.5 2.5 0 0 1 4 17.5v-2M8 9.5h8M8 12.25h8M8 15h5' },
+  screenshot: {
+    stroke: `M3.5 9a2.25 2.25 0 0 1 2.25-2.25h1.9L9.1 4.5h5.8l1.45 2.25h1.9A2.25 2.25 0 0 1 20.5 9v8.25a2.25 2.25 0 0 1-2.25 2.25H5.75a2.25 2.25 0 0 1-2.25-2.25z${circle(12, 13, 3.25)}`,
+  },
+  qr: {
+    stroke: `${rect(4, 4, 6, 6, 1.25)}${rect(14, 4, 6, 6, 1.25)}${rect(4, 14, 6, 6, 1.25)}`,
+    fill: [[7, 7], [17, 7], [7, 17], [14.75, 14.75], [19.25, 14.75], [17, 17], [14.75, 19.25], [19.25, 19.25]].map(([x, y]) => circle(x, y, 1.1)).join(''),
+  },
+  picker: { stroke: 'M13.25 7.75l3 3M4.5 19.5l1.6-.4a1.6 1.6 0 0 0 .75-.42l7.9-7.9-3-3-7.9 7.9a1.6 1.6 0 0 0-.42.75zM14.75 6.25l1.9-1.9a2.12 2.12 0 0 1 3 3l-1.9 1.9M12.25 4.75l7 7' },
+  theme: { stroke: circle(12, 12, 8.25), fill: 'M12 3.75a8.25 8.25 0 0 1 0 16.5z' },
+  playpause: { stroke: 'M4.5 6.6v10.8a.6.6 0 0 0 .93.5l7.9-5.4a.6.6 0 0 0 0-1l-7.9-5.4a.6.6 0 0 0-.93.5zM16.75 6.5v11M20.25 6.5v11' },
+  mic: { stroke: `${rect(9, 3.5, 6, 11, 3)}M5.75 11.25a6.25 6.25 0 0 0 12.5 0M12 17.5v3M9 20.5h6` },
+  timer: { stroke: `${circle(12, 13.5, 7)}M12 10.25v3.25M10 3.5h4M12 3.5v3M18 6.5l1.25-1.25` },
+  mute: { stroke: 'M4 9.6a.6.6 0 0 1 .6-.6H7.5L11 5.6a.6.6 0 0 1 1 .44v11.92a.6.6 0 0 1-1 .44L7.5 15H4.6a.6.6 0 0 1-.6-.6zM15.75 9.75l4.5 4.5M20.25 9.75l-4.5 4.5' },
+  focus: { stroke: 'M19.5 14.25A7.5 7.5 0 0 1 9.75 4.5a7.75 7.75 0 1 0 9.75 9.75z' },
+  clipboard: { stroke: `M8.5 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1.5${rect(8.5, 3, 7, 4, 1)}M9 11.5h6M9 15h4` },
+  terminal: { stroke: `${rect(3, 4.5, 18, 15, 2.5)}M7.5 9.5 10 12l-2.5 2.5M12.5 14.75h4` },
+  note: { stroke: 'M4.5 19.5l.9-3.6L15.6 5.7a2.12 2.12 0 0 1 3 3L8.4 18.9zM13.75 7.5l3 3' },
+  run: { stroke: 'M7 5.4v13.2a.75.75 0 0 0 1.14.64l10.6-6.6a.75.75 0 0 0 0-1.28L8.14 4.76A.75.75 0 0 0 7 5.4z' },
+  tile: { stroke: `${rect(3.5, 4, 7.5, 16, 2)}${rect(13, 4, 7.5, 7, 2)}${rect(13, 13, 7.5, 7, 2)}` },
+  external: { stroke: 'M14 4h6v6M20 4l-8.5 8.5M18 13.5v4.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4.5' },
+  branch: { stroke: `${circle(6.5, 5.5, 2)}${circle(6.5, 18.5, 2)}${circle(17.5, 6.5, 2)}M6.5 7.5v9M17.5 8.5v.5a4 4 0 0 1-4 4h-3a4 4 0 0 0-4 3.5` },
+  pull: { stroke: 'M12 4v11M7.5 10.5 12 15l4.5-4.5M4.5 15.5v2.75A1.75 1.75 0 0 0 6.25 20h11.5a1.75 1.75 0 0 0 1.75-1.75V15.5' },
+  kill: { stroke: `${circle(12, 12, 8.5)}M9.25 9.25l5.5 5.5M14.75 9.25l-5.5 5.5` },
+  browser: { stroke: `${rect(3, 4.5, 18, 15, 2.5)}M3 9h18${dot(6, 6.75)}${dot(8.5, 6.75)}` },
+  folder: { stroke: 'M3.5 7.25A2.25 2.25 0 0 1 5.75 5h3.4l2 2.25h7.1a2.25 2.25 0 0 1 2.25 2.25v8.25A2.25 2.25 0 0 1 18.25 20H5.75A2.25 2.25 0 0 1 3.5 17.75z' },
+  coffee: { stroke: 'M4.5 9.5h11v4.25A5.25 5.25 0 0 1 10.25 19h-.5A5.25 5.25 0 0 1 4.5 13.75zM15.5 10.5h1.25a2.5 2.5 0 0 1 0 5H15M8 3.5v3M12 3.5v3' },
+  sparkle: { stroke: 'M12 4c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z' },
+  solo: { stroke: `${rect(3, 4, 18, 13, 2.5)}${rect(7.5, 7.5, 9, 6, 1)}M9 20.5h6` },
+  // Onboarding's permission rows.
+  accessibility: { stroke: `${circle(12, 12, 8.5)}M8 9.75l4 1 4-1M12 10.75v3.25M9.75 17.25 12 14l2.25 3.25`, fill: circle(12, 7.25, 1.25) },
+  screen: { stroke: `${rect(3, 4, 18, 12.5, 2.5)}M12 16.5V20M8.5 20h7` },
+  automation: { stroke: 'M4.5 19.5l10-10M13 8l3 3M17.5 3.5v3M16 5h3M20 10.5v2M19 11.5h2M9 4v2M8 5h2' },
+  check: { stroke: 'M5.5 12.5l4 4 9-9' },
+  alert: { stroke: 'M12 7.5v5.5', fill: circle(12, 16.5, 1.15) },
+}
+
+// Draws an icon into an existing SVG node (any element that takes children).
+export function appendIcon(doc, parent, name) {
+  const icon = icons[name]
+  if (!icon) return false
+  const NS = 'http://www.w3.org/2000/svg'
+  if (icon.stroke) {
+    const path = doc.createElementNS(NS, 'path')
+    path.setAttribute('d', icon.stroke)
+    path.setAttribute('class', 'icon-stroke')
+    path.setAttribute('fill', 'none')
+    path.setAttribute('stroke', 'currentColor')
+    path.setAttribute('stroke-width', '1.75')
+    path.setAttribute('stroke-linecap', 'round')
+    path.setAttribute('stroke-linejoin', 'round')
+    parent.append(path)
+  }
+  if (icon.fill) {
+    const path = doc.createElementNS(NS, 'path')
+    path.setAttribute('d', icon.fill)
+    path.setAttribute('class', 'icon-fill')
+    path.setAttribute('fill', 'currentColor')
+    parent.append(path)
+  }
+  return true
+}
+
+// A standalone <svg> for HTML pages.
+export function iconSvg(doc, name, className) {
+  const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  if (className) svg.setAttribute('class', className)
+  appendIcon(doc, svg, name)
+  return svg
 }

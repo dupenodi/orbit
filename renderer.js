@@ -5,7 +5,6 @@ const config = { slots: [], deadzone: 44 }
 let state = initialState()
 let view = null
 let slotsKey = ''
-const wheel = document.querySelector('#wheel')
 
 // Main sends the wheel for the frontmost app on every open; rebuild only when it changes.
 function setSlots(slots) {
@@ -14,7 +13,7 @@ function setSlots(slots) {
   slotsKey = key
   config.slots = slots
   document.querySelector('#ring').replaceChildren()
-  view = createWheelView(document, slots)
+  view = createWheelView(document, slots, { deadzone: config.deadzone })
 }
 
 function dispatch(action) {
@@ -36,16 +35,6 @@ function flushPointer() {
   dispatch({ type: 'pointer', x: point.x, y: point.y })
 }
 
-function fadeOut() {
-  window.gsap.to(wheel, {
-    scale: 0.97,
-    autoAlpha: 0,
-    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.1,
-    ease: 'power2.in',
-    overwrite: 'auto',
-  })
-}
-
 window.orbit?.onStart((_event, payload) => {
   setSlots(payload.slots)
   pending = null
@@ -62,12 +51,13 @@ window.orbit?.onPointer((_event, point) => {
 window.orbit?.onRelease(() => {
   flushPointer()
   dispatch({ type: 'close' })
-  if (state.confirmedIndex != null) window.orbit.choose(state.confirmedIndex)
-  fadeOut()
+  const picked = state.confirmedIndex
+  if (picked != null) window.orbit.choose(picked)
+  view?.dismiss(picked != null)
 })
 
 window.orbit?.onCancel(() => {
   pending = null
   dispatch({ type: 'cancel' })
-  fadeOut()
+  view?.dismiss(false)
 })

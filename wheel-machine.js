@@ -27,6 +27,10 @@ export function indexFromAngle(angle, count, zeroAngle = TOP) {
 // so aiming near a boundary doesn't flicker between two slices.
 export const HYSTERESIS = 0.09
 
+// Once aiming, the pointer has to come this much closer to the centre before the
+// wheel counts it as back in the deadzone, so hovering at the edge can't flutter.
+export const DEADZONE_RETURN = 0.7
+
 export function angularDistance(a, b) {
   return wrapAngle(a - b + Math.PI) - Math.PI
 }
@@ -65,6 +69,7 @@ export function reduce(state, action, config) {
       return {
         ...state,
         open: true,
+        confirmedIndex: null,
         origin: action.origin,
         pointer: action.origin,
         distance: 0,
@@ -76,7 +81,8 @@ export function reduce(state, action, config) {
     case 'pointer': {
       if (!state.open) return state
       const polar = polarFromOrigin(state.origin, { x: action.x, y: action.y })
-      const inDeadzone = polar.distance < config.deadzone
+      const radius = state.inDeadzone ? config.deadzone : config.deadzone * DEADZONE_RETURN
+      const inDeadzone = polar.distance < radius
       const selectedIndex = inDeadzone
         ? state.selectedIndex
         : pickIndex(polar.angle, slots.length, state.selectedIndex, !state.inDeadzone)
@@ -110,6 +116,7 @@ export function reduce(state, action, config) {
       return {
         ...state,
         open: false,
+        confirmedIndex: null,
         pointer: null,
         angle: null,
         distance: 0,

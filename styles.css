@@ -1,10 +1,12 @@
+/* The wheel. Also loaded by onboarding, which hosts a live copy. */
 :root {
-  --glass-edge: rgba(255, 255, 255, 0.28);
-  --glass-hub: rgba(255, 255, 255, 0.08);
-  --ink-light: #ffffff;
-  --ink-dark: #121622;
-  --muted-light: rgba(255, 255, 255, 0.66);
-  --muted-dark: rgba(18, 22, 34, 0.62);
+  --wheel-ink: #ffffff;
+  --wheel-ink-dim: rgba(255, 255, 255, 0.82);
+  --wheel-muted: rgba(255, 255, 255, 0.56);
+  --wheel-ink-on-plate: #16181d;
+  --wheel-muted-on-plate: rgba(22, 24, 29, 0.6);
+  --wheel-glass: rgba(20, 22, 27, 0.56);
+  --wheel-edge: rgba(255, 255, 255, 0.16);
 }
 
 * {
@@ -21,9 +23,11 @@ body {
 
 body {
   overflow: hidden;
-  color: var(--ink-light);
-  font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  color: var(--wheel-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+  cursor: default;
 }
 
 #overlay {
@@ -31,13 +35,15 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at center, rgba(8, 10, 16, 0.12) 0, rgba(8, 10, 16, 0.3) 45%, rgba(8, 10, 16, 0.55) 100%);
+  /* Settles the frosted desktop so the wheel reads on any wallpaper. */
+  background: radial-gradient(closest-side circle at center, rgba(6, 8, 12, 0.16), rgba(6, 8, 12, 0.3) 70%, rgba(6, 8, 12, 0.44) 160%);
 }
 
 #wheel {
   position: relative;
   width: 620px;
   height: 620px;
+  will-change: transform, opacity;
 }
 
 #ring {
@@ -45,123 +51,133 @@ body {
   overflow: visible;
 }
 
-.pop {
-  transform-box: view-box;
-  transition: transform 0.16s cubic-bezier(0.3, 1.6, 0.5, 1);
+/* ---- Slices ------------------------------------------------------------ */
+
+.piece-base {
+  fill: var(--wheel-glass);
 }
 
-.piece {
-  fill: url(#glass);
-  stroke: var(--glass-edge);
+.piece-sheen {
+  stroke: var(--wheel-edge);
   stroke-width: 1;
   stroke-linejoin: round;
-  transition: fill 0.12s;
 }
 
-.icon,
-.icon-text {
-  fill: var(--ink-light);
-  transition: fill 0.12s;
+.plate {
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.28)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
 }
 
-.icon-text {
-  font-size: 34px;
+.layer {
+  pointer-events: none;
+}
+
+.content {
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.content.is-selected {
+  transform: scale(1.06);
+}
+
+.layer-light .icon {
+  color: var(--wheel-ink);
+}
+
+.layer-dark .icon {
+  color: var(--wheel-ink-on-plate);
+}
+
+.glyph {
+  fill: currentColor;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.caption {
-  fill: var(--muted-light);
-  font-size: 13px;
+.label {
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.01em;
-  transition: fill 0.12s;
+  letter-spacing: 0.005em;
 }
 
-.slot.is-selected .pop {
-  transform: translate(var(--dx), var(--dy));
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.35));
+.layer-light .label {
+  fill: var(--wheel-ink-dim);
 }
 
-.slot.is-selected .piece {
-  fill: url(#glass-hot);
-  stroke: rgba(255, 255, 255, 0.9);
+.layer-dark .label {
+  fill: var(--wheel-ink-on-plate);
 }
 
-.slot.is-selected .icon,
-.slot.is-selected .icon-text {
-  fill: var(--ink-dark);
+/* ---- Hub --------------------------------------------------------------- */
+
+.hub-base {
+  fill: var(--wheel-glass);
 }
 
-.slot.is-selected .caption {
-  fill: var(--muted-dark);
-}
-
-.hub-glass {
-  fill: var(--glass-hub);
-  stroke: var(--glass-edge);
+.hub-sheen {
+  stroke: var(--wheel-edge);
   stroke-width: 1;
 }
 
-.hub-arc,
-.notch {
-  transform-box: view-box;
-  transform-origin: 310px 310px;
-}
-
-.hub-arc {
-  fill: none;
-  stroke: var(--ink-light);
-  stroke-width: 3;
-  stroke-linecap: round;
-  transition: transform 0.2s cubic-bezier(0.3, 1.5, 0.5, 1);
-}
-
-.notch {
-  fill: var(--ink-light);
-  transition: opacity 0.15s;
-}
-
-.notch.is-idle {
+/* A soft arc on the hub rim, pointing wherever the pointer is headed. */
+.aim {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 242px;
+  height: 242px;
+  border-radius: 50%;
+  background: conic-gradient(from -36deg, rgba(255, 255, 255, 0), #fff 36deg, rgba(255, 255, 255, 0) 72deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px), #000 calc(100% - 0.5px), transparent);
+  mask: radial-gradient(closest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px), #000 calc(100% - 0.5px), transparent);
   opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .hub {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 13rem;
+  width: 196px;
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 
 #hub-name {
-  font-size: 1.65rem;
+  overflow: hidden;
+  font-size: 20px;
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.012em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 #hub-caption {
-  margin-top: 0.3rem;
-  color: var(--muted-light);
-  font-size: 0.95rem;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--wheel-muted);
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-#hub-index {
-  margin-top: 0.7rem;
-  color: var(--muted-light);
-  font-size: 0.75rem;
+.hub.is-muted #hub-name {
+  color: var(--wheel-ink-dim);
+  font-size: 15px;
   font-weight: 500;
-  letter-spacing: 0.12em;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.hub.is-muted #hub-caption {
+  font-size: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pop,
-  .hub-arc,
-  .notch {
+  .content {
     transition: none;
   }
 }

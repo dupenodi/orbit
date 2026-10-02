@@ -10,33 +10,38 @@
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
-    <h2>General</h2>
-    <section class="group">
-      <div class="row">
-        <div>
-          <p class="label">Shortcut</p>
-          <p class="help" id="shortcut-help">Click, then press the keys to hold.</p>
+    <main>
+      <section>
+        <div class="group">
+          <div class="row">
+            <div class="row-text">
+              <p class="label">Wheel shortcut</p>
+              <p class="help" id="shortcut-help">Hold it anywhere to open the wheel.</p>
+            </div>
+            <button type="button" class="recorder" id="shortcut" aria-describedby="shortcut-help"></button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <label class="label" for="login">Open at login</label>
+            </div>
+            <input id="login" class="switch" type="checkbox" role="switch" />
+          </div>
         </div>
-        <button type="button" id="shortcut"></button>
-      </div>
-      <div class="row">
-        <label for="login">Open at Login</label>
-        <input id="login" type="checkbox" />
-      </div>
-    </section>
+      </section>
 
-    <div id="permissions-section">
-      <h2>Permissions</h2>
-      <section class="group" id="permissions" aria-live="polite"></section>
-      <p class="note" id="permissions-note"></p>
-    </div>
+      <section id="permissions-section">
+        <h2>Permissions</h2>
+        <div class="group" id="permissions" aria-live="polite"></div>
+        <p class="note" id="permissions-note"></p>
+      </section>
+    </main>
 
     <footer>
-      <p class="help" id="version">Orbit</p>
-      <button type="button" class="link" id="guide">Welcome Guide</button>
+      <p id="version">Orbit</p>
+      <button type="button" class="link" id="guide">Welcome Guide…</button>
     </footer>
     <script src="shortcut.js"></script>
     <script src="shortcut-recorder.js"></script>
-    <script src="settings.js"></script>
+    <script type="module" src="settings.js"></script>
   </body>
 </html>

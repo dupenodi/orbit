@@ -1,41 +1,21 @@
 import { initialState, reduce, slotAngle } from './wheel-machine.js'
 import { createWheelView } from './wheel-view.js'
-import { icons } from './icons.js'
+import { iconSvg } from './icons.js'
 
 const gsap = window.gsap
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const $ = (selector) => document.querySelector(selector)
 
-const PERMISSION_ICONS = {
-  accessibility:
-    'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 5.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5zM6.5 9.5l5.5 1.2 5.5-1.2.4 1.8-4.4 1v2.4l1.8 4.6-1.8.7-1.5-4-1.5 4-1.8-.7 1.8-4.6v-2.4l-4.4-1z',
-  screen: 'M2 3h20v14H2zM4 5v10h16V5zM8 19h8v2H8zM7 7h4v1.5H8.5V10H7zM17 13h-4v-1.5h2.5V10H17z',
-  automation:
-    'M3 19.6 15.6 7l1.4 1.4L4.4 21zM17 2l.9 2.1L20 5l-2.1.9L17 8l-.9-2.1L14 5l2.1-.9zM20.5 9l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6zM9 3l.6 1.4L11 5l-1.4.6L9 7l-.6-1.4L7 5l1.4-.6z',
-}
-const CHECK = 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-1.2 13.6 6.3-6.3-1.4-1.4-4.9 4.9-2.4-2.4-1.4 1.4z'
-
 const info = await window.orbitApp.info()
 const isMac = info.platform === 'darwin'
 document.documentElement.dataset.platform = info.platform
+if (info.accent) document.documentElement.style.setProperty('--accent', info.accent)
 let prefs = await window.prefs.get()
 const steps = info.steps
 let stepIndex = Math.max(0, steps.indexOf(new URLSearchParams(location.search).get('step')))
 let permissionStatus = {}
 let permissionTimer = null
 let askedForScreen = false
-
-function svgIcon(path, className) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  svg.setAttribute('viewBox', '0 0 24 24')
-  svg.setAttribute('aria-hidden', 'true')
-  if (className) svg.setAttribute('class', className)
-  const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-  shape.setAttribute('d', path)
-  shape.setAttribute('fill-rule', 'evenodd')
-  svg.append(shape)
-  return svg
-}
 
 function make(tag, className, text) {
   const node = document.createElement(tag)
@@ -48,9 +28,11 @@ function make(tag, className, text) {
 
 const wheelHost = make('div', 'wheel-host')
 wheelHost.append($('#wheel-template').content.cloneNode(true))
+// On the page before it's built, so captions can be measured to fit their slices.
+$('[data-dock="welcome"]').append(wheelHost)
 const config = { slots: info.slots, deadzone: 40 }
 let wheelState = initialState()
-const wheelView = createWheelView(wheelHost, info.slots)
+const wheelView = createWheelView(wheelHost, info.slots, { deadzone: config.deadzone })
 
 function dispatch(action) {
   wheelState = reduce(wheelState, action, config)
@@ -61,6 +43,7 @@ function dockWheel(name) {
   const dock = document.querySelector(`[data-dock="${name}"]`)
   if (wheelHost.parentElement !== dock) dock.append(wheelHost)
   dispatch({ type: 'cancel' })
+  wheelView.rest()
 }
 
 // ---- Welcome: the wheel demos itself ---------------------------------------
@@ -78,7 +61,11 @@ function startDemo() {
   stopDemo()
   dockWheel('welcome')
   const center = { x: 310, y: 310 }
-  dispatch({ type: 'open', origin: center })
+  const summon = () => {
+    dispatch({ type: 'cancel' })
+    dispatch({ type: 'open', origin: center })
+  }
+  summon()
   const count = info.slots.length
   if (!count) return
   const probe = { angle: slotAngle(0, count), radius: 0 }
@@ -89,7 +76,7 @@ function startDemo() {
     placeCursor(x, y)
   }
   if (reducedMotion) {
-    probe.radius = 150
+    probe.radius = 176
     place()
     return
   }
@@ -97,7 +84,9 @@ function startDemo() {
   const order = [0, 2, 5, 3, 7, 1, 4].filter((index) => index < count)
   demo = gsap.timeline({ repeat: -1, onUpdate: place, delay: 0.5 })
   demo.set(probe, { radius: 0, angle: slotAngle(order[0], count) })
-  demo.to(probe, { radius: 150, duration: 0.6, ease: 'power2.out' })
+  // Each pass summons the wheel afresh, the way a real hold would.
+  demo.call(summon)
+  demo.to(probe, { radius: 176, duration: 0.6, ease: 'power2.out' })
   let angle = slotAngle(order[0], count)
   for (const index of order.slice(1)) {
     const target = slotAngle(index, count)
@@ -105,7 +94,7 @@ function startDemo() {
     demo.to(probe, { angle, duration: 0.75, ease: 'power2.inOut' }, '+=0.55')
   }
   demo.to(probe, { radius: 0, duration: 0.5, ease: 'power2.in' }, '+=0.55')
-  demo.set(probe, { angle: slotAngle(order[0], count) }, '+=0.3')
+  demo.set(probe, { angle: slotAngle(order[0], count) }, '+=0.6')
 }
 
 function stopDemo() {
@@ -120,7 +109,7 @@ function renderSlots() {
     ...info.slots.map((slot) => {
       const card = make('li', 'slot-card')
       const icon = make('div', 'slot-icon')
-      if (icons[slot.icon]) icon.append(svgIcon(icons[slot.icon]))
+      icon.append(iconSvg(document, slot.icon))
       const text = make('div')
       text.append(make('h3', null, slot.label), make('p', null, slot.about ?? slot.caption ?? ''))
       card.append(icon, text)
@@ -134,10 +123,10 @@ function renderSlots() {
 function permissionButton(permission, state) {
   if (state === 'granted') {
     const done = make('span', 'status')
-    done.append(svgIcon(CHECK), document.createTextNode('Allowed'))
+    done.append(iconSvg(document, 'check'), document.createTextNode('Allowed'))
     return done
   }
-  const button = make('button', `button small ${state === 'needed' ? 'accent' : 'ghost'}`)
+  const button = make('button', `button small ${state === 'needed' ? 'primary' : ''}`)
   button.type = 'button'
   button.textContent = state === 'needed' ? 'Allow' : 'Open Settings'
   button.addEventListener('click', async () => {
@@ -155,7 +144,7 @@ function renderPermissions(status) {
       const state = status[permission.id] ?? 'unknown'
       const row = make('li', `permission is-${state}`)
       const icon = make('div', 'permission-icon')
-      icon.append(svgIcon(PERMISSION_ICONS[permission.id]))
+      icon.append(iconSvg(document, permission.id))
       const text = make('div')
       text.append(make('h3', null, permission.title), make('p', null, permission.why))
       row.append(icon, text, permissionButton(permission, state))
@@ -190,8 +179,12 @@ const changeButton = $('#change-shortcut')
 function renderKeycaps(label, shortcut) {
   const recording = changeButton.classList.contains('is-recording')
   keycaps.classList.toggle('is-recording', recording)
-  changeButton.textContent = recording ? 'Press your keys…' : 'Change shortcut'
-  const caps = shortcut ? shortcutParts(shortcut) : [['…', 'press keys']]
+  changeButton.textContent = recording ? 'Press keys…' : 'Change Shortcut'
+  const caps = shortcut ? shortcutParts(shortcut) : []
+  if (!caps.length) {
+    keycaps.replaceChildren(make('div', 'keycap is-empty'))
+    return
+  }
   keycaps.replaceChildren(
     ...caps.map(([symbol, name]) => {
       const cap = make('div', 'keycap')
@@ -204,7 +197,7 @@ function renderKeycaps(label, shortcut) {
 
 function idlePrompt() {
   practicePrompt.classList.remove('is-success')
-  practicePrompt.textContent = `Hold ${prefs.shortcutLabel} now to try it. Practice mode: nothing actually runs.`
+  practicePrompt.textContent = `Hold ${prefs.shortcutLabel} to try it. Nothing runs while you practice.`
 }
 
 const recorder = createShortcutRecorder({
@@ -234,7 +227,7 @@ window.orbitApp.onPractice((event, payload) => {
     dispatch({ type: 'cancel' })
     dispatch({ type: 'open', origin: payload.origin })
     practicePrompt.classList.remove('is-success')
-    practicePrompt.textContent = 'Now flick toward a slice, then let go.'
+    practicePrompt.textContent = 'Now flick toward a slice and let go.'
     return
   }
   if (event === 'pointer') {
@@ -252,10 +245,10 @@ window.orbitApp.onPractice((event, payload) => {
   const picked = info.slots[wheelState.confirmedIndex]
   if (picked) {
     practicePrompt.classList.add('is-success')
-    practicePrompt.textContent = `Nice! That would run ${picked.label}. You’ve got it.`
+    practicePrompt.textContent = `That would have run ${picked.label}. You’ve got it.`
   } else {
     practicePrompt.classList.remove('is-success')
-    practicePrompt.textContent = 'You let go in the middle, which cancels. Flick a little further.'
+    practicePrompt.textContent = 'Letting go in the middle cancels. Flick a little further out.'
   }
 })
 
@@ -289,13 +282,12 @@ function missingCount() {
 function updateFooter() {
   const step = steps[stepIndex]
   const labels = {
-    welcome: 'Get started',
-    permissions: missingCount() ? 'Skip for now' : 'Continue',
-    ready: 'Start using Orbit',
+    welcome: 'Get Started',
+    permissions: missingCount() ? 'Skip for Now' : 'Continue',
+    ready: 'Start Using Orbit',
   }
   nextButton.textContent = labels[step] ?? 'Continue'
   nextButton.classList.toggle('primary', step !== 'permissions' || !missingCount())
-  nextButton.classList.toggle('ghost', step === 'permissions' && missingCount() > 0)
   backButton.classList.toggle('is-hidden', stepIndex === 0)
   ;[...dots.children].forEach((dot, index) => {
     dot.classList.toggle('is-active', index === stepIndex)

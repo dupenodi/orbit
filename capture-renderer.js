@@ -6,6 +6,8 @@ const hint = document.getElementById('hint')
 const loupe = document.getElementById('loupe')
 const zoom = document.getElementById('zoom')
 const hex = document.getElementById('hex')
+const swatch = document.getElementById('swatch')
+const size = document.getElementById('size')
 const ctx = shade.getContext('2d')
 const zoomCtx = zoom.getContext('2d')
 
@@ -57,20 +59,56 @@ function drawLoupe() {
   if (!pointer || !pixels) return
   const { x, y } = shotPoint(pointer)
   const half = Math.floor(LOUPE_PIXELS / 2)
+  const cell = zoom.width / LOUPE_PIXELS
   zoomCtx.imageSmoothingEnabled = false
   zoomCtx.fillStyle = '#000'
   zoomCtx.fillRect(0, 0, zoom.width, zoom.height)
   zoomCtx.drawImage(pixels, x - half, y - half, LOUPE_PIXELS, LOUPE_PIXELS, 0, 0, zoom.width, zoom.height)
-  const cell = zoom.width / LOUPE_PIXELS
-  zoomCtx.strokeStyle = '#fff'
-  zoomCtx.lineWidth = 2
+  // A faint pixel grid, and the picked pixel framed in white with a dark keyline.
+  zoomCtx.strokeStyle = 'rgba(0, 0, 0, 0.18)'
+  zoomCtx.lineWidth = 1
+  zoomCtx.beginPath()
+  for (let i = 1; i < LOUPE_PIXELS; i++) {
+    const at = Math.round(i * cell) + 0.5
+    zoomCtx.moveTo(at, 0)
+    zoomCtx.lineTo(at, zoom.height)
+    zoomCtx.moveTo(0, at)
+    zoomCtx.lineTo(zoom.width, at)
+  }
+  zoomCtx.stroke()
+  zoomCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)'
+  zoomCtx.lineWidth = 5
   zoomCtx.strokeRect(half * cell, half * cell, cell, cell)
-  hex.textContent = colorAt(pointer)
+  zoomCtx.strokeStyle = '#fff'
+  zoomCtx.lineWidth = 3
+  zoomCtx.strokeRect(half * cell, half * cell, cell, cell)
+  const color = colorAt(pointer)
+  hex.textContent = color
+  swatch.style.background = color
   // Sit below-right of the pointer, flipping near the screen's edges.
-  const left = pointer.x + 24 + 132 > innerWidth ? pointer.x - 24 - 132 : pointer.x + 24
-  const top = pointer.y + 24 + 160 > innerHeight ? pointer.y - 24 - 160 : pointer.y + 24
+  const width = 132
+  const height = 168
+  const left = pointer.x + 28 + width > innerWidth ? pointer.x - 28 - width : pointer.x + 28
+  const top = pointer.y + 28 + height > innerHeight ? pointer.y - 28 - height : pointer.y + 28
   loupe.style.transform = `translate(${left}px, ${top}px)`
+  loupe.style.width = `${width}px`
   loupe.hidden = false
+}
+
+// Live dimensions, in real pixels, tucked under the selection's corner.
+function drawSize(rect) {
+  if (!rect || rect.width < 1 || rect.height < 1) {
+    size.hidden = true
+    return
+  }
+  const scaleX = pixels ? pixels.width / innerWidth : devicePixelRatio
+  const scaleY = pixels ? pixels.height / innerHeight : devicePixelRatio
+  size.textContent = `${Math.round(rect.width * scaleX)} × ${Math.round(rect.height * scaleY)}`
+  size.hidden = false
+  const below = rect.y + rect.height + 8
+  const top = below + 22 > innerHeight ? rect.y + rect.height - 28 : below
+  const left = Math.min(innerWidth - size.offsetWidth - 8, rect.x + rect.width - size.offsetWidth)
+  size.style.transform = `translate(${Math.max(8, left)}px, ${top}px)`
 }
 
 function draw() {
@@ -79,14 +117,19 @@ function draw() {
     drawLoupe()
     return
   }
-  ctx.fillStyle = 'rgba(8, 10, 16, 0.45)'
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
   ctx.fillRect(0, 0, innerWidth, innerHeight)
   const rect = selection()
+  drawSize(rect)
   if (!rect) return
   ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+  // White edge with a dark keyline, so it shows on light and dark content alike.
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)'
+  ctx.lineWidth = 3
+  ctx.strokeRect(rect.x - 0.5, rect.y - 0.5, rect.width + 1, rect.height + 1)
   ctx.strokeStyle = '#fff'
-  ctx.lineWidth = 1.5
-  ctx.strokeRect(rect.x + 0.75, rect.y + 0.75, Math.max(0, rect.width - 1.5), Math.max(0, rect.height - 1.5))
+  ctx.lineWidth = 1
+  ctx.strokeRect(rect.x - 0.5, rect.y - 0.5, rect.width + 1, rect.height + 1)
 }
 
 window.addEventListener('mousedown', (event) => {
@@ -97,6 +140,7 @@ window.addEventListener('mousedown', (event) => {
     return
   }
   start = pointer
+  document.body.classList.add('is-dragging')
   draw()
 })
 
@@ -127,7 +171,12 @@ async function load() {
   const data = await window.capture.load()
   if (!data) return done(null)
   mode = data.mode
-  hint.textContent = mode === 'point' ? 'Click a pixel to copy its color · Esc to cancel' : 'Drag over an area · Esc to cancel'
+  hint.replaceChildren(
+    mode === 'point' ? 'Click to copy a color' : 'Drag over an area',
+    document.createTextNode('  ·  '),
+    Object.assign(document.createElement('kbd'), { textContent: 'Esc' }),
+    ' to cancel',
+  )
   shot.src = data.image
   await shot.decode()
   pixels = document.createElement('canvas')

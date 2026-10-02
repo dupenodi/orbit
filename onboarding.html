@@ -11,11 +11,7 @@
     <link rel="stylesheet" href="onboarding.css" />
   </head>
   <body>
-    <div class="backdrop" aria-hidden="true">
-      <div class="orbit orbit-1"><span></span></div>
-      <div class="orbit orbit-2"><span></span></div>
-      <div class="orbit orbit-3"><span></span></div>
-    </div>
+    <div class="backdrop" aria-hidden="true"></div>
     <div class="titlebar"></div>
 
     <!-- One live wheel, moved into whichever scene needs it. -->
@@ -23,10 +19,12 @@
       <div id="overlay">
         <div id="wheel">
           <svg id="ring" aria-hidden="true"></svg>
+          <div class="aim" aria-hidden="true"></div>
           <div class="hub">
-            <p id="hub-name"></p>
-            <p id="hub-caption"></p>
-            <p id="hub-index"></p>
+            <div class="hub-text">
+              <p id="hub-name"></p>
+              <p id="hub-caption"></p>
+            </div>
           </div>
         </div>
       </div>
@@ -37,7 +35,7 @@
         <div class="copy">
           <img class="mark" src="assets/icon.svg" alt="" />
           <p class="eyebrow">Welcome to Orbit</p>
-          <h1>Your handiest tools, one flick away.</h1>
+          <h1>Your everyday tools, one flick away.</h1>
           <p class="lede">
             Hold a shortcut, flick toward what you need, let go. Orbit keeps eight everyday tools right under your
             cursor, in every app.
@@ -54,9 +52,9 @@
       <section class="scene scene-stack" data-step="wheel">
         <div class="copy">
           <p class="eyebrow">Your wheel</p>
-          <h1>Eight tools. No hunting.</h1>
+          <h1>Eight small jobs, always within reach.</h1>
           <p class="lede">
-            Each slice is a small job you’d otherwise dig through menus for. Swap them out anytime in
+            Each slice does something you’d otherwise dig through menus for. Swap any of them in
             <code>wheels.json</code>.
           </p>
         </div>
@@ -66,15 +64,15 @@
       <section class="scene" data-step="permissions">
         <div class="copy">
           <p class="eyebrow">Permissions</p>
-          <h1>Let Orbit lend a hand.</h1>
+          <h1>A few permissions.</h1>
           <p class="lede">
-            macOS asks before any app can see your windows or screen. Orbit only uses these when you pick an action.
+            macOS asks before any app can see your screen or press keys for you. Orbit only uses them when you pick an action that needs them.
           </p>
           <p class="privacy">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 10h14v12H5zM11 14v4h2v-4zM7 10V7a5 5 0 0 1 10 0v3h-2V7a3 3 0 0 0-6 0v3z" fill-rule="evenodd" />
             </svg>
-            <span>Everything runs on your Mac. Nothing leaves it.</span>
+            <span>Everything stays on your Mac.</span>
           </p>
         </div>
         <div class="visual visual-list">
@@ -89,15 +87,15 @@
 
       <section class="scene" data-step="shortcut">
         <div class="copy">
-          <p class="eyebrow">Give it a spin</p>
+          <p class="eyebrow">Try it</p>
           <h1>Hold. Flick. Release.</h1>
           <div class="keycaps" id="keycaps" aria-live="polite"></div>
           <ol class="how">
-            <li><span><b>Hold</b> your shortcut anywhere. The wheel opens around your cursor.</span></li>
-            <li><span><b>Flick</b> the mouse toward a slice.</span></li>
-            <li><span><b>Release</b> to run it. Let go in the middle to cancel.</span></li>
+            <li><span><b>Hold</b> the shortcut. The wheel opens under your pointer.</span></li>
+            <li><span><b>Flick</b> toward a slice.</span></li>
+            <li><span><b>Release</b> to run it, or let go in the middle to cancel.</span></li>
           </ol>
-          <button type="button" class="button small ghost" id="change-shortcut">Change shortcut</button>
+          <button type="button" class="button small" id="change-shortcut">Change Shortcut</button>
           <p class="hint" id="shortcut-help"></p>
         </div>
         <div class="visual">
@@ -108,7 +106,7 @@
 
       <section class="scene" data-step="ready">
         <div class="copy">
-          <p class="eyebrow">You’re all set</p>
+          <p class="eyebrow">All set</p>
           <h1 id="ready-title">Orbit lives in your menu bar.</h1>
           <p class="lede" id="ready-lede"></p>
           <label class="switch">
@@ -147,8 +145,8 @@
     <nav class="footer">
       <div class="dots" id="dots"></div>
       <div class="actions">
-        <button type="button" class="button ghost" id="back">Back</button>
-        <button type="button" class="button primary" id="next">Get started</button>
+        <button type="button" class="button" id="back">Back</button>
+        <button type="button" class="button primary" id="next">Get Started</button>
       </div>
     </nav>
 

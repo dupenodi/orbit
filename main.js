@@ -6,6 +6,7 @@ const {
   Tray,
   nativeImage,
   ipcMain,
+  nativeTheme,
   screen,
   shell,
   systemPreferences,
@@ -114,14 +115,18 @@ function pointerIn(win) {
 // The frosted backdrop can't be animated from the page, so the window itself fades.
 let fadeTimer
 
-function fadeOverlay(to, duration, done) {
+const easeOut = (t) => 1 - (1 - t) ** 3
+// Holds for a beat before falling away, so a picked slice registers before it goes.
+const easeIn = (t) => t * t
+
+function fadeOverlay(to, duration, done, ease = easeOut) {
   clearInterval(fadeTimer)
   const from = overlay.getOpacity()
   const length = systemPreferences.getAnimationSettings().prefersReducedMotion ? 0 : duration
   const started = Date.now()
   const step = () => {
     const t = length ? Math.min(1, (Date.now() - started) / length) : 1
-    overlay.setOpacity(from + (to - from) * (1 - (1 - t) ** 3))
+    overlay.setOpacity(from + (to - from) * ease(t))
     if (t < 1) return
     clearInterval(fadeTimer)
     done?.()
@@ -154,7 +159,7 @@ function startHold(front) {
   }
   if (!overlay) return
   current = wheelFor(front)
-  if (current.error) showToast({ ok: false, title: 'wheels.json', message: 'Could not read it, using the defaults' })
+  if (current.error) showToast({ ok: false, title: 'Couldn’t read wheels.json', message: 'Using the default wheel for now' })
   pointerHome = screen.getCursorScreenPoint()
   const center = coverPointerDisplay()
   warpPointer(center)
@@ -181,7 +186,7 @@ function finishHold(mode) {
     pointerHome = null
   }
   // The page fades the wheel out over the same stretch; hide once both are gone.
-  if (win === overlay) fadeOverlay(0, 110, () => overlay.hide())
+  if (win === overlay) fadeOverlay(0, 170, () => overlay.hide(), easeIn)
 }
 
 function stopWatcher() {
@@ -255,6 +260,8 @@ function createOverlay() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      // Hidden between uses; it must still paint its first frame the instant it's shown.
+      backgroundThrottling: false,
     },
   })
 
@@ -276,8 +283,8 @@ function createOverlay() {
 
 function createToast() {
   toast = new BrowserWindow({
-    width: 440,
-    height: 72,
+    width: 480,
+    height: 104,
     show: false,
     frame: false,
     transparent: true,
@@ -294,6 +301,8 @@ function createToast() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      // Hidden between uses; it must still paint its first frame the instant it's shown.
+      backgroundThrottling: false,
     },
   })
   toast.setAlwaysOnTop(true, 'screen-saver')
@@ -307,7 +316,7 @@ function showToast(result) {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const { width, height } = toast.getBounds()
   const area = display.workArea
-  toast.setPosition(Math.round(area.x + (area.width - width) / 2), Math.round(area.y + area.height - height - 48))
+  toast.setPosition(Math.round(area.x + (area.width - width) / 2), Math.round(area.y + area.height - height - 28))
   toast.showInactive()
   toast.webContents.send('toast:show', result)
   clearTimeout(toastTimer)
@@ -333,13 +342,16 @@ function openSettings() {
   settings = new BrowserWindow({
     width: 460,
     // Without the permissions section (Windows), Settings is much shorter.
-    height: PERMISSIONS.length ? 520 : 300,
+    height: PERMISSIONS.length ? 474 : 196,
+    useContentSize: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
     title: 'Orbit Settings',
+    // Matches the page's ground, so opening never flashes the wrong colour.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e20' : '#f2f2f4',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'window-preload.js'),
@@ -375,8 +387,8 @@ function openOnboarding(step = 'welcome') {
     titleBarStyle: isMac() ? 'hiddenInset' : 'hidden',
     trafficLightPosition: { x: 18, y: 18 },
     // Windows draws its own caption buttons over the page's dark titlebar strip.
-    ...(isMac() ? {} : { titleBarOverlay: { color: '#080a12', symbolColor: '#ffffff', height: 40 } }),
-    backgroundColor: '#080a12',
+    ...(isMac() ? {} : { titleBarOverlay: { color: '#111113', symbolColor: '#ffffff', height: 40 } }),
+    backgroundColor: '#111113',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'window-preload.js'),
@@ -468,7 +480,7 @@ function announceTimerDone() {
   } else if (Notification.isSupported()) {
     new Notification({ title: 'Time’s up', body: 'Your timer has finished.' }).show()
   }
-  showToast({ ok: true, title: 'Timer', message: 'Time’s up', duration: 8000 })
+  showToast({ ok: true, title: 'Time’s up', message: 'Your timer has finished', icon: 'timer', duration: 8000 })
 }
 
 function createTray() {
@@ -523,7 +535,9 @@ ipcMain.on('wheel:choose', async (event, index) => {
   const slot = current.slots[index]
   if (!slot) return
   const result = await runAction(slot, current.context)
-  showToast({ ...result, title: slot.label })
+  // Backing out of a picker is the user's own doing; nothing to report.
+  if (!result.ok && result.message === 'Cancelled') return
+  showToast({ ...result, title: slot.label, icon: slot.icon })
 })
 
 ipcMain.handle('prefs:get', () => publicPrefs())
@@ -557,8 +571,19 @@ ipcMain.handle('prefs:setOpenAtLogin', (_event, openAtLogin) => {
   return publicPrefs()
 })
 
+// The user's system accent colour as #rrggbb, where the platform has one.
+function accentColor() {
+  try {
+    const hex = systemPreferences.getAccentColor?.()
+    return /^[0-9a-f]{6}/i.test(hex ?? '') ? `#${hex.slice(0, 6)}` : null
+  } catch {
+    return null
+  }
+}
+
 ipcMain.handle('app:info', () => ({
   version: app.getVersion(),
+  accent: accentColor(),
   platform: process.platform,
   // Unpackaged, macOS lists Orbit as "Electron" in Privacy & Security.
   settingsName: app.isPackaged ? 'Orbit' : 'Electron',

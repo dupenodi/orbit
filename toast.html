@@ -10,10 +10,16 @@
     <link rel="stylesheet" href="toast.css" />
   </head>
   <body>
-    <div id="toast">
-      <span id="dot"></span>
-      <p><strong id="title"></strong><span id="message"></span></p>
+    <div id="toast" role="status" aria-live="polite">
+      <div id="badge">
+        <span id="icon"></span>
+        <span id="status"></span>
+      </div>
+      <div id="text">
+        <p id="title"></p>
+        <p id="message"></p>
+      </div>
     </div>
-    <script src="toast-renderer.js"></script>
+    <script type="module" src="toast-renderer.js"></script>
   </body>
 </html>
