@@ -1,0 +1,42 @@
+name: macOS
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ui:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Compiles every Swift helper, so a helper that no longer builds fails here.
+      - name: Build the native helpers
+        run: node scripts/ensure-mod-watch.js
+
+      # Real windows, vibrancy and SF Pro, in dark and light appearance; fails on
+      # page errors or dropped frames while the wheel animates.
+      - name: Photograph the UI
+        run: npx electron test/mac-ui.js
+
+      - name: Launch the app
+        run: |
+          mkdir -p test-output
+          npx electron . > test-output/app.log 2>&1 &
+          sleep 10
+          pgrep -f bin/mod-watch > /dev/null || { cat test-output/app.log; echo 'The shortcut watcher is not running'; exit 1; }
+          pkill -f 'electron \.' || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-ui
+          path: test-output/
