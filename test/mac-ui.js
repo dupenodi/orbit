@@ -66,10 +66,6 @@ async function shoot(name, rect, win) {
   if (win) fs.writeFileSync(file, (await win.webContents.capturePage()).toPNG())
 }
 
-function center(bounds) {
-  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
-}
-
 // Samples requestAnimationFrame in the page for `ms` and reports the gaps between frames.
 function framePacing(win, ms) {
   return win.webContents.executeJavaScript(`new Promise((resolve) => {
