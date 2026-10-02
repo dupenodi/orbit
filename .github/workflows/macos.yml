@@ -27,7 +27,27 @@ jobs:
       - name: Photograph the UI
         run: npx electron test/mac-ui.js
 
+      # The wheel as it was before the compositor-layer rework, timed on this same
+      # machine, so the numbers above have something to be read against.
+      - name: Time the original wheel
+        if: always()
+        continue-on-error: true
+        run: |
+          git fetch --depth=1 origin 79a39553ead6176ba1578226b33082eff88d2be7
+          git worktree add /tmp/baseline FETCH_HEAD
+          ln -s "$PWD/node_modules" /tmp/baseline/node_modules
+          ORBIT_ROOT=/tmp/baseline ORBIT_ONLY=wheel ORBIT_LABEL=baseline npx electron test/mac-ui.js || true
+          node -e '
+            const fs = require("fs")
+            const read = (f) => JSON.parse(fs.readFileSync(f, "utf8"))
+            const now = read("test-output/mac/timings.json"), then = read("test-output/mac/baseline/timings.json")
+            for (const [i, row] of now.entries())
+              for (const key of ["opening", "sweeping"])
+                console.log(row.theme, key.padEnd(8), "original:", JSON.stringify(then[i][key]), "\n", " ".repeat(row.theme.length + 9), "now:     ", JSON.stringify(row[key]))
+          '
+
       - name: Launch the app
+        if: always()
         run: |
           mkdir -p test-output
           npx electron . > test-output/app.log 2>&1 &

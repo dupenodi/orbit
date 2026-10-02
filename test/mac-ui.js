@@ -8,10 +8,15 @@ const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const ROOT = path.join(__dirname, '..')
-const OUT = path.join(ROOT, 'test-output', 'mac')
+// ORBIT_ROOT points at another checkout's pages (CI times the original wheel as a
+// baseline); ORBIT_ONLY=wheel skips everything but the wheel.
+const ROOT = process.env.ORBIT_ROOT ? path.resolve(process.env.ORBIT_ROOT) : path.join(__dirname, '..')
+const ONLY_WHEEL = process.env.ORBIT_ONLY === 'wheel'
+const LABEL = process.env.ORBIT_LABEL || 'current'
+const OUT = path.join(__dirname, '..', 'test-output', 'mac', LABEL === 'current' ? '' : LABEL)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const problems = []
+const timings = []
 // Panels only exist on macOS; elsewhere (trying the script locally) they fail to load.
 const PANEL = process.platform === 'darwin' ? { type: 'panel' } : {}
 
@@ -203,6 +208,9 @@ async function wheelScenes(theme) {
   // Let the window server finish with the capture before timing anything.
   await sleep(500)
 
+  // The machine's own noise: the wheel open and still, nothing moving.
+  const idle = await framePacing(overlay, 1300)
+
   // A full sweep around the ring at the rate main samples the pointer.
   const sweep = framePacing(overlay, 1300)
   for (let i = 0; i <= 150; i++) {
@@ -227,11 +235,13 @@ async function wheelScenes(theme) {
   await sleep(400)
 
   overlay.hide()
-  console.log(`${theme} wheel first open`, JSON.stringify(cold))
-  console.log(`${theme} wheel opening`, JSON.stringify(opening))
-  console.log(`${theme} wheel sweep  `, JSON.stringify(sweeping))
-  for (const [label, stats] of [['opening', opening], ['sweep', sweeping]]) {
-    if (stats.dropped > Math.max(2, stats.frames * 0.05)) problems.push(`${theme} wheel ${label}: ${stats.dropped} dropped frames of ${stats.frames}`)
+  const report = { cold, opening, idle, sweeping }
+  for (const [name, stats] of Object.entries(report)) console.log(`${LABEL} ${theme} wheel ${name.padEnd(8)}`, JSON.stringify(stats))
+  timings.push({ theme, ...report })
+  // Judged against the idle wheel on the same machine, so a slow runner alone can't fail it.
+  const allowance = (stats) => Math.ceil((idle.dropped / Math.max(1, idle.frames)) * stats.frames) + Math.max(3, Math.round(stats.frames * 0.05))
+  for (const [name, stats] of [['opening', opening], ['sweep', sweeping]]) {
+    if (stats.dropped > allowance(stats)) problems.push(`${theme} wheel ${name}: ${stats.dropped} dropped frames of ${stats.frames} (idle: ${idle.dropped} of ${idle.frames})`)
   }
 }
 
@@ -291,12 +301,14 @@ app.whenReady().then(async () => {
       nativeTheme.themeSource = theme
       await sleep(300)
       await wheelScenes(theme)
+      if (ONLY_WHEEL) continue
       await toastScenes(theme)
       await windowScenes(theme)
     }
   } catch (error) {
     problems.push(error.stack || String(error))
   }
+  fs.writeFileSync(path.join(OUT, 'timings.json'), JSON.stringify(timings, null, 2))
   for (const problem of problems) console.log(`FAIL  ${problem}`)
   console.log(problems.length ? `${problems.length} problem(s)` : 'All UI scenes rendered cleanly')
   app.exit(problems.length ? 1 : 0)
