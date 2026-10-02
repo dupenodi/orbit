@@ -49,7 +49,7 @@ expect(shown.length === holds.length && Math.max(...shown) < 400, 'the wheel is 
 // to animate, the first after launch included (that one used to stall).
 const openings = holds.map((hold) => find(hold, 'opened')?.detail.match(/frames=(\d+) opacity=([\d.]+)/))
 openings.forEach((match, index) => console.log(`hold ${index + 1}: drew ${match ? `${match[1]} frames, ending at opacity ${match[2]}` : 'no report'}`))
-expect(openings.every((match) => match && Number(match[1]) >= 10), 'every opening draws its frames, the first hold included')
+expect(openings.every((match) => match && Number(match[1]) >= 16), 'every opening draws its frames, the first hold included')
 expect(openings.every((match) => match && Number(match[2]) === 1), 'every opening ends fully visible')
 
 // The toast reports how long its card took to fade in; the first one used to lag.
