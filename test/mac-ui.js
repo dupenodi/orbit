@@ -8,12 +8,8 @@ const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 
-// ORBIT_ROOT points at another checkout's pages (CI times the original wheel as a
-// baseline); ORBIT_ONLY=wheel skips everything but the wheel.
-const ROOT = process.env.ORBIT_ROOT ? path.resolve(process.env.ORBIT_ROOT) : path.join(__dirname, '..')
-const ONLY_WHEEL = process.env.ORBIT_ONLY === 'wheel'
-const LABEL = process.env.ORBIT_LABEL || 'current'
-const OUT = path.join(__dirname, '..', 'test-output', 'mac', LABEL === 'current' ? '' : LABEL)
+const ROOT = path.join(__dirname, '..')
+const OUT = path.join(ROOT, 'test-output', 'mac')
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const problems = []
 const timings = []
@@ -236,7 +232,7 @@ async function wheelScenes(theme) {
 
   overlay.hide()
   const report = { cold, opening, idle, sweeping }
-  for (const [name, stats] of Object.entries(report)) console.log(`${LABEL} ${theme} wheel ${name.padEnd(8)}`, JSON.stringify(stats))
+  for (const [name, stats] of Object.entries(report)) console.log(`${theme} wheel ${name.padEnd(8)}`, JSON.stringify(stats))
   timings.push({ theme, ...report })
   // Judged against the idle wheel on the same machine, so a slow runner alone can't fail it.
   const allowance = (stats) => Math.ceil((idle.dropped / Math.max(1, idle.frames)) * stats.frames) + Math.max(3, Math.round(stats.frames * 0.05))
@@ -301,7 +297,6 @@ app.whenReady().then(async () => {
       nativeTheme.themeSource = theme
       await sleep(300)
       await wheelScenes(theme)
-      if (ONLY_WHEEL) continue
       await toastScenes(theme)
       await windowScenes(theme)
     }
