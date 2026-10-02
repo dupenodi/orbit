@@ -15,6 +15,9 @@ const ICON_SIZE = 30
 const PLATE_OUT = 5
 const PLATE_IN = 2
 const PLATE_POP = 3
+// Expo-out, for things that should land quickly and settle softly.
+const SETTLE = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const FALL = 'cubic-bezier(0.5, 0, 0.75, 0)'
 
 let instances = 0
 
@@ -41,15 +44,19 @@ function el(name, attrs = {}) {
   return node
 }
 
-function linear(id, stops, vertical = true) {
-  const gradient = el('linearGradient', {
-    id,
-    gradientUnits: 'userSpaceOnUse',
-    x1: CX,
-    y1: vertical ? CY - OUTER : CY,
-    x2: CX,
-    y2: vertical ? CY + OUTER : CY,
-  })
+function div(className) {
+  const node = document.createElement('div')
+  node.className = className
+  return node
+}
+
+// A full-size SVG; every layer shares the wheel's 620×620 coordinate space.
+function svgLayer(className) {
+  return el('svg', { class: className, viewBox: `0 0 ${SIZE} ${SIZE}`, width: SIZE, height: SIZE })
+}
+
+function linear(id, stops) {
+  const gradient = el('linearGradient', { id, gradientUnits: 'userSpaceOnUse', x1: CX, y1: CY - OUTER, x2: CX, y2: CY + OUTER })
   for (const [offset, color, opacity] of stops) {
     gradient.append(el('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }))
   }
@@ -62,6 +69,15 @@ function reducedMotion() {
 
 function motion(seconds) {
   return reducedMotion() ? 0 : seconds
+}
+
+// Sets `to` on the element and animates there from `from`. Transform and opacity
+// animations run on the compositor, so they stay smooth however busy the page is.
+function play(node, from, to, duration, easing = 'linear', delay = 0) {
+  for (const animation of node.getAnimations()) animation.cancel()
+  Object.assign(node.style, to)
+  if (!duration) return
+  node.animate([from, to], { duration: duration * 1000, easing, delay: delay * 1000, fill: 'backwards' })
 }
 
 // Accumulates rotation so a turn always takes the short way round.
@@ -109,10 +125,16 @@ function fitLabel(pair, width) {
   second.textContent = first.textContent
 }
 
+// The wheel is a stack of compositor layers, so nothing repaints while it moves:
+//   ring        glass pieces and light content; spins up on open
+//     plate     the white selection plate; turns to the aimed slice
+//       clip    cut to the plate's shape, so it travels with the plate
+//         counter  undoes the plate's motion, so the dark content stays put
+//   hub         the centre disc
 export function createWheelView(root, slots, options = {}) {
   const deadzone = options.deadzone ?? 44
   const wheel = root.querySelector('#wheel')
-  const svg = root.querySelector('#ring')
+  const host = root.querySelector('#ring')
   const hub = root.querySelector('.hub')
   const hubText = root.querySelector('.hub-text')
   const hubName = root.querySelector('#hub-name')
@@ -121,18 +143,22 @@ export function createWheelView(root, slots, options = {}) {
   const gsap = window.gsap
   const id = `w${++instances}`
 
-  svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`)
-  svg.setAttribute('width', String(SIZE))
-  svg.setAttribute('height', String(SIZE))
-
   const count = slots.length
   const sector = count ? TWO_PI / count : TWO_PI
   const platePath = wedgePath(INNER - PLATE_IN, OUTER + PLATE_OUT, -Math.PI / 2 - sector / 2, -Math.PI / 2 + sector / 2, GAP)
 
+  const ring = div('ring-layer')
+  const pieces = svgLayer('pieces')
+  const light = svgLayer('layer layer-light')
+  const plate = div('plate-layer')
+  const plateSvg = svgLayer('plate')
+  const clip = div('plate-clip')
+  const counter = div('plate-counter')
+  const dark = svgLayer('layer layer-dark')
+  const hubDisc = svgLayer('hub-disc')
+  clip.style.clipPath = `path('${platePath}')`
+
   const defs = el('defs')
-  const clipPath = el('path', { d: platePath })
-  const clip = el('clipPath', { id: `${id}-plate` })
-  clip.append(clipPath)
   defs.append(
     linear(`${id}-sheen`, [
       [0, '#ffffff', 0.17],
@@ -143,51 +169,50 @@ export function createWheelView(root, slots, options = {}) {
       [0, '#ffffff', 1],
       [1, '#eceff5', 1],
     ]),
-    clip,
   )
-  svg.append(defs)
+  pieces.append(defs)
 
-  // Everything that spins in on open; the hub stays put.
-  const ring = el('g', { class: 'ring' })
-  const pieces = el('g', { class: 'pieces' })
-  const light = el('g', { class: 'layer layer-light' })
-  const dark = el('g', { class: 'layer layer-dark', 'clip-path': `url(#${id}-plate)` })
-  const plate = el('path', { class: 'plate', d: platePath, fill: `url(#${id}-plate-fill)` })
   const contents = []
-
   slots.forEach((slot, index) => {
     const center = slotAngle(index, count)
     const d = wedgePath(INNER, OUTER, center - sector / 2, center + sector / 2, GAP)
-    const piece = el('g', { class: 'piece' })
-    piece.append(el('path', { class: 'piece-base', d }), el('path', { class: 'piece-sheen', d, fill: `url(#${id}-sheen)` }))
-    pieces.append(piece)
+    pieces.append(el('path', { class: 'piece-base', d }), el('path', { class: 'piece-sheen', d, fill: `url(#${id}-sheen)` }))
     const pair = [slotContent(slot, center), slotContent(slot, center)]
     light.append(pair[0])
     dark.append(pair[1])
-    contents.push({ piece, pair })
+    contents.push(pair)
   })
 
-  ring.append(pieces, plate, light, dark)
-  // Captions have to fit their slice; the hub always shows the full name.
-  const labelWidth = Math.max(40, 2 * (MID + 22) * Math.sin(Math.min(Math.PI / 2, sector / 2)) - 2 * GAP - 18)
-  const hubDisc = el('g', { class: 'hub-disc' })
+  plateSvg.append(el('path', { class: 'plate-shape', d: platePath, fill: `url(#${id}-plate-fill)` }))
   hubDisc.append(
     el('circle', { class: 'hub-base', cx: CX, cy: CY, r: HUB }),
     el('circle', { class: 'hub-sheen', cx: CX, cy: CY, r: HUB, fill: `url(#${id}-sheen)` }),
   )
-  svg.append(ring, hubDisc)
-  for (const { pair } of contents) fitLabel(pair, labelWidth)
+
+  counter.append(dark)
+  clip.append(counter)
+  plate.append(plateSvg, clip)
+  ring.append(pieces, light, plate)
+  host.replaceChildren(ring, hubDisc)
+
+  // Captions have to fit their slice; the hub always shows the full name.
+  const labelWidth = Math.max(40, 2 * (MID + 22) * Math.sin(Math.min(Math.PI / 2, sector / 2)) - 2 * GAP - 18)
+  for (const pair of contents) fitLabel(pair, labelWidth)
 
   // ---- Selection plate: one white piece that glides to whichever slice is aimed at.
   const plateState = { deg: 0, scale: 0.94, pop: 0, alpha: 0 }
 
   function drawPlate() {
     const { deg, scale, pop, alpha } = plateState
-    const transform = `translate(${CX} ${CY}) rotate(${deg.toFixed(3)}) translate(0 ${(-pop).toFixed(3)}) scale(${scale.toFixed(4)}) translate(${-CX} ${-CY})`
-    plate.setAttribute('transform', transform)
-    clipPath.setAttribute('transform', transform)
-    plate.style.opacity = alpha
-    dark.style.opacity = alpha
+    plate.style.transform = `rotate(${deg.toFixed(3)}deg) translateY(${(-pop).toFixed(3)}px) scale(${scale.toFixed(4)})`
+    counter.style.transform = `scale(${(1 / scale).toFixed(5)}) translateY(${pop.toFixed(3)}px) rotate(${(-deg).toFixed(3)}deg)`
+    plate.style.opacity = alpha.toFixed(3)
+  }
+
+  function resetPlate() {
+    gsap.killTweensOf(plateState)
+    Object.assign(plateState, { scale: 0.94, pop: 0, alpha: 0 })
+    drawPlate()
   }
   drawPlate()
 
@@ -245,7 +270,7 @@ export function createWheelView(root, slots, options = {}) {
     hubCaption.textContent = caption
     hub.classList.toggle('is-muted', Boolean(muted))
     if (!name) return
-    gsap.fromTo(hubText, { opacity: 0.35, y: 3 }, { opacity: 1, y: 0, duration: motion(0.16), ease: 'power2.out', overwrite: 'auto' })
+    play(hubText, { opacity: 0.35, transform: 'translateY(3px)' }, { opacity: '1', transform: 'none' }, motion(0.16), 'cubic-bezier(0.3, 0.7, 0.4, 1)')
   }
 
   // ---- Sync with the state machine.
@@ -255,11 +280,9 @@ export function createWheelView(root, slots, options = {}) {
   let aimedThisHold = false
 
   function select(index) {
-    contents.forEach(({ piece, pair }, i) => {
-      const on = i === index
-      piece.classList.toggle('is-selected', on)
-      pair[0].classList.toggle('is-selected', on)
-      pair[1].classList.toggle('is-selected', on)
+    contents.forEach((pair, i) => {
+      pair[0].classList.toggle('is-selected', i === index)
+      pair[1].classList.toggle('is-selected', i === index)
     })
   }
 
@@ -268,23 +291,15 @@ export function createWheelView(root, slots, options = {}) {
     plateShown = false
     shownIndex = null
     select(null)
-    gsap.killTweensOf(plateState)
-    Object.assign(plateState, { scale: 0.94, pop: 0, alpha: 0 })
-    drawPlate()
+    resetPlate()
     moveAim(-90, 0, true)
     showHub('', '', false)
-    const duration = motion(0.3)
-    gsap.killTweensOf([wheel, ring, hubDisc, pieces])
-    gsap.set(wheel, { scale: 1 })
-    gsap.set(pieces, { opacity: 1 })
-    gsap.fromTo(wheel, { autoAlpha: 0 }, { autoAlpha: 1, duration: motion(0.12), ease: 'none' })
+    const duration = motion(0.32)
+    play(wheel, { opacity: 0 }, { opacity: '1', transform: 'none' }, motion(0.12))
+    play(pieces, {}, { opacity: '1' }, 0)
     // The ring spins up into place around a steady hub.
-    gsap.fromTo(
-      ring,
-      { scale: 0.9, rotation: -14, svgOrigin: `${CX} ${CY}` },
-      { scale: 1, rotation: 0, duration, ease: 'expo.out' },
-    )
-    gsap.fromTo(hubDisc, { scale: 0.86, svgOrigin: `${CX} ${CY}` }, { scale: 1, duration, ease: 'expo.out' })
+    play(ring, { transform: 'rotate(-14deg) scale(0.9)' }, { transform: 'none' }, duration, SETTLE)
+    play(hubDisc, { transform: 'scale(0.86)' }, { transform: 'none' }, duration, SETTLE)
   }
 
   function sync(state) {
@@ -340,24 +355,14 @@ export function createWheelView(root, slots, options = {}) {
 
   // Exit: a picked slice holds for a beat and brightens while the rest falls away.
   function dismiss(confirmed) {
-    const duration = motion(confirmed ? 0.16 : 0.12)
     moveAim(aimState.deg, 0, false)
-    gsap.killTweensOf([wheel, ring])
     if (confirmed) {
       gsap.to(plateState, { pop: PLATE_POP + 4, scale: 1.02, duration: motion(0.1), ease: 'power2.out', overwrite: 'auto', onUpdate: drawPlate })
-      gsap.to(pieces, { opacity: 0.35, duration: motion(0.08) })
+      play(pieces, { opacity: 1 }, { opacity: '0.35' }, motion(0.08), 'ease-out')
+      play(wheel, { opacity: 1 }, { opacity: '0' }, motion(0.16), FALL, motion(0.04))
+    } else {
+      play(wheel, { opacity: 1, transform: 'none' }, { opacity: '0', transform: 'scale(0.97)' }, motion(0.12), FALL)
     }
-    gsap.to(wheel, {
-      autoAlpha: 0,
-      scale: confirmed ? 1 : 0.97,
-      duration,
-      delay: confirmed ? motion(0.04) : 0,
-      ease: 'power2.in',
-      onComplete: () => {
-        gsap.set(wheel, { scale: 1 })
-        gsap.set(pieces, { opacity: 1 })
-      },
-    })
   }
 
   // Shown at rest (onboarding keeps a wheel on screen between holds).
@@ -366,15 +371,13 @@ export function createWheelView(root, slots, options = {}) {
     shownIndex = null
     plateShown = false
     select(null)
-    gsap.killTweensOf([wheel, pieces, plateState])
-    plateState.alpha = 0
-    drawPlate()
+    resetPlate()
     moveAim(aimState.deg, 0, true)
     showHub('', '', false)
-    gsap.set(wheel, { autoAlpha: 1, scale: 1 })
-    gsap.set(pieces, { opacity: 1 })
+    play(wheel, {}, { opacity: '1', transform: 'none' }, 0)
+    play(pieces, {}, { opacity: '1' }, 0)
   }
 
-  gsap.set(wheel, { autoAlpha: 0 })
+  wheel.style.opacity = '0'
   return { sync, dismiss, rest }
 }

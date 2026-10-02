@@ -187,14 +187,25 @@ async function wheelScenes(theme) {
   const crop = { x: bounds.x + origin.x - 340, y: bounds.y + origin.y - 340, width: 680, height: 680 }
   const send = (channel, payload) => overlay.webContents.send(channel, payload)
 
-  const pacing = framePacing(overlay, 450)
-  send('wheel:start', { origin, slots: slots.map(({ label, caption, icon, glyph }) => ({ label, caption, icon, glyph })) })
+  const start = () => send('wheel:start', { origin, slots: slots.map(({ label, caption, icon, glyph }) => ({ label, caption, icon, glyph })) })
+
+  // The first open after launch pays one-off costs (layers, glyphs); measure it,
+  // but judge the warm one, which is every open after that.
+  let pacing = framePacing(overlay, 450)
+  start()
+  const cold = await pacing
+  send('wheel:cancel')
+  await sleep(400)
+  pacing = framePacing(overlay, 450)
+  start()
   const opening = await pacing
   await shoot(`${theme}-wheel-idle`, crop, overlay)
 
   send('wheel:pointer', at(-45, 210))
   await sleep(450)
   await shoot(`${theme}-wheel-aim`, crop, overlay)
+  // Let the window server finish with the capture before timing anything.
+  await sleep(500)
 
   // A full sweep around the ring at the rate main samples the pointer.
   const sweep = framePacing(overlay, 1300)
@@ -220,6 +231,7 @@ async function wheelScenes(theme) {
   await sleep(400)
 
   overlay.hide()
+  console.log(`${theme} wheel first open`, JSON.stringify(cold))
   console.log(`${theme} wheel opening`, JSON.stringify(opening))
   console.log(`${theme} wheel sweep  `, JSON.stringify(sweeping))
   for (const [label, stats] of [['opening', opening], ['sweep', sweeping]]) {

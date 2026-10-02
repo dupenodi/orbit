@@ -46,9 +46,31 @@ body {
   will-change: transform, opacity;
 }
 
-#ring {
-  display: block;
+#ring,
+.ring-layer,
+.plate-layer,
+.plate-clip,
+.plate-counter,
+#ring svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 620px;
+  height: 620px;
   overflow: visible;
+}
+
+/* Each moving part is its own compositor layer, so motion never repaints it. */
+.ring-layer,
+.plate-layer,
+.plate-counter,
+.hub-disc {
+  transform-origin: 310px 310px;
+  will-change: transform;
+}
+
+.pieces {
+  will-change: opacity;
 }
 
 /* ---- Slices ------------------------------------------------------------ */
@@ -63,8 +85,9 @@ body {
   stroke-linejoin: round;
 }
 
-.plate {
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.28)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+/* Shadow without an offset, so it reads the same whichever way the plate turns. */
+.plate-shape {
+  filter: drop-shadow(0 0 16px rgba(0, 0, 0, 0.3)) drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.22));
 }
 
 .layer {
