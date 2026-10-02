@@ -29,6 +29,15 @@ window.orbitToast.onShow((_event, data) => {
   void card.offsetWidth
   card.classList.add(shown ? 'is-bump' : 'is-in')
   card.classList.add('is-shown')
+  if (data.trace && !shown) {
+    // With ORBIT_TRACE on, report how long the card took to finish fading in.
+    const started = performance.now()
+    card.addEventListener('transitionend', function done(event) {
+      if (event.propertyName !== 'opacity') return
+      card.removeEventListener('transitionend', done)
+      window.orbitToast.report(`in ${Math.round(performance.now() - started)}ms`)
+    })
+  }
   shown = true
 })
 

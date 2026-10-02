@@ -35,6 +35,7 @@ let settings
 let onboarding
 let toast
 let toastTimer
+let toastUp = false
 let current = null
 let tray
 // The window a held shortcut is driving: the real wheel, or onboarding's practice one.
@@ -153,6 +154,34 @@ function beginHold(win, channel, payload) {
   }, 8)
 }
 
+// What the page needs of each slot to draw it.
+function wheelSlots(slots) {
+  return slots.map(({ label, caption, icon, glyph }) => ({ label, caption, icon, glyph }))
+}
+
+// A window macOS has never shown takes a moment to start presenting frames, which
+// made the first summon (and first toast) stutter. Both are shown once at launch,
+// invisible and click-through, so that cost is paid before anyone holds the keys.
+function warmOverlay() {
+  if (holding) return
+  coverPointerDisplay()
+  overlay.setOpacity(0)
+  overlay.setIgnoreMouseEvents(true)
+  overlay.showInactive()
+  overlay.webContents.send('wheel:warm', { slots: wheelSlots(wheelFor({ bundleId: '' }).slots) })
+  setTimeout(() => {
+    overlay.setIgnoreMouseEvents(false)
+    if (holding?.win !== overlay) overlay.hide()
+  }, 700)
+}
+
+function warmToast() {
+  toast.showInactive()
+  setTimeout(() => {
+    if (!toastUp) toast.hide()
+  }, 600)
+}
+
 function startHold(front) {
   if (holding) return
   // While onboarding's practice round is up, the shortcut drives its wheel and nothing runs.
@@ -174,7 +203,8 @@ function startHold(front) {
   fadeOverlay(1, 140, () => trace('shown'))
   beginHold(overlay, 'wheel', {
     origin: relativeTo(overlay, center),
-    slots: current.slots.map(({ label, caption, icon, glyph }) => ({ label, caption, icon, glyph })),
+    slots: wheelSlots(current.slots),
+    trace: Boolean(process.env.ORBIT_TRACE),
   })
 }
 
@@ -287,6 +317,7 @@ function createOverlay() {
   overlay.loadFile(path.join(__dirname, 'index.html'))
   overlay.webContents.on('did-finish-load', () => {
     startWatcher()
+    warmOverlay()
   })
 
   overlay.on('close', (event) => {
@@ -324,6 +355,7 @@ function createToast() {
   toast.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   toast.setIgnoreMouseEvents(true)
   toast.loadFile(path.join(__dirname, 'toast.html'))
+  toast.webContents.once('did-finish-load', warmToast)
 }
 
 function showToast(result) {
@@ -334,11 +366,15 @@ function showToast(result) {
   const area = display.workArea
   toast.setPosition(Math.round(area.x + (area.width - width) / 2), Math.round(area.y + area.height - height - 28))
   toast.showInactive()
-  toast.webContents.send('toast:show', result)
+  toastUp = true
+  toast.webContents.send('toast:show', { ...result, trace: Boolean(process.env.ORBIT_TRACE) })
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
     toast.webContents.send('toast:hide')
-    toastTimer = setTimeout(() => toast.hide(), 200)
+    toastTimer = setTimeout(() => {
+      toastUp = false
+      toast.hide()
+    }, 200)
   }, result.duration ?? (result.ok ? 1800 : 3200))
 }
 
@@ -566,6 +602,12 @@ function tick(event, win) {
 }
 
 ipcMain.on('wheel:tick', (event) => tick(event, overlay))
+ipcMain.on('wheel:report', (event, message) => {
+  if (event.sender === overlay?.webContents) trace('opened', String(message))
+})
+ipcMain.on('toast:report', (event, message) => {
+  if (event.sender === toast?.webContents) trace('toasted', String(message))
+})
 ipcMain.on('practice:tick', (event) => tick(event, onboarding))
 
 ipcMain.handle('prefs:get', () => publicPrefs())

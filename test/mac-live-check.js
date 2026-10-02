@@ -45,6 +45,18 @@ const shown = holds.map((hold) => since(hold, 'hold', 'shown')).filter((ms) => m
 const hidden = holds.map((hold) => since(hold, 'release', 'hidden')).filter((ms) => ms != null)
 expect(shown.length === holds.length && Math.max(...shown) < 400, 'the wheel is fully shown within 400ms of the hold')
 
+// The wheel reports the frames it drew in the 400ms after opening. Every hold has
+// to animate, the first after launch included (that one used to stall).
+const openings = holds.map((hold) => find(hold, 'opened')?.detail.match(/frames=(\d+) opacity=([\d.]+)/))
+openings.forEach((match, index) => console.log(`hold ${index + 1}: drew ${match ? `${match[1]} frames, ending at opacity ${match[2]}` : 'no report'}`))
+expect(openings.every((match) => match && Number(match[1]) >= 10), 'every opening draws its frames, the first hold included')
+expect(openings.every((match) => match && Number(match[2]) === 1), 'every opening ends fully visible')
+
+// The toast reports how long its card took to fade in; the first one used to lag.
+const toasts = events.filter((event) => event.name === 'toasted').map((event) => Number(event.detail.match(/in (\d+)ms/)?.[1]))
+console.log(`toasts faded in after: ${toasts.map((ms) => `${ms}ms`).join(', ') || 'no reports'}`)
+expect(toasts.length >= 2 && toasts.every((ms) => ms < 500), 'each toast, the first included, fades in within 500ms')
+
 // With Reduce Motion on, Orbit skips its fades; otherwise they must actually play.
 const motion = events.find((event) => event.name === 'motion')?.detail
 console.log(`system motion: ${motion ?? 'unknown'}`)

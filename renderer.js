@@ -35,11 +35,43 @@ function flushPointer() {
   dispatch({ type: 'pointer', x: point.x, y: point.y })
 }
 
+// With ORBIT_TRACE on, main asks how many frames the wheel actually drew while
+// opening, which shows whether it animated or stalled.
+function measureOpening() {
+  let frames = 0
+  const started = performance.now()
+  const count = (now) => {
+    frames += 1
+    if (now - started < 400) {
+      requestAnimationFrame(count)
+      return
+    }
+    const opacity = getComputedStyle(document.querySelector('#wheel')).opacity
+    window.orbit.report(`frames=${frames} opacity=${opacity}`)
+  }
+  requestAnimationFrame(count)
+}
+
+let warming = 0
+
 window.orbit?.onStart((_event, payload) => {
+  clearTimeout(warming)
   setSlots(payload.slots)
   pending = null
   // Origin is the wheel's centre; main moves the pointer there as the wheel opens.
   dispatch({ type: 'open', origin: payload.origin })
+  if (payload.trace) measureOpening()
+})
+
+// At launch, main shows this window once, invisibly: build and open the wheel so
+// its layers exist and are painted before the first real hold.
+window.orbit?.onWarm((_event, payload) => {
+  setSlots(payload.slots)
+  dispatch({ type: 'open', origin: { x: innerWidth / 2, y: innerHeight / 2 } })
+  warming = setTimeout(() => {
+    dispatch({ type: 'cancel' })
+    view?.dismiss(false)
+  }, 300)
 })
 
 window.orbit?.onPointer((_event, point) => {
