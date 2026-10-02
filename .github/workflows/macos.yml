@@ -23,14 +23,17 @@ jobs:
         run: node scripts/ensure-mod-watch.js
 
       # Real windows, vibrancy and SF Pro, in dark and light appearance; fails on
-      # page errors or dropped frames while the wheel animates.
+      # page errors, and flags (without failing) frame pacing worse than the
+      # runner's own idle noise, since hosted runners have no real GPU.
       - name: Photograph the UI
+        timeout-minutes: 6
         run: npx electron test/mac-ui.js
 
       # The real app, driven by real keyboard and pointer events: hold Control+Option,
       # flick, let go. Checks what each hold did and how fast the wheel came and went.
       - name: Hold the real shortcut
         if: always()
+        timeout-minutes: 4
         run: |
           out=test-output/mac/live
           mkdir -p "$out" bin
@@ -41,11 +44,12 @@ jobs:
           ORBIT_TRACE=1 npx electron . > "$out/app.log" 2>&1 &
           sleep 8
           shot() { screencapture -x "$out/$1.png" || true; }
-          bin/mac-input flick 225 260 700 & sleep 0.8; shot 1-aimed; wait; sleep 0.5; shot 1-toast
+          # Wait on the input helper alone; the app keeps running in the background.
+          bin/mac-input flick 225 260 700 & input=$!; sleep 0.8; shot 1-aimed; wait $input; sleep 0.5; shot 1-toast
           sleep 2.5
-          bin/mac-input flick 45 260 400 back & sleep 0.65; shot 2-aimed; sleep 0.35; shot 2-cancel; wait
+          bin/mac-input flick 45 260 400 back & input=$!; sleep 0.65; shot 2-aimed; sleep 0.35; shot 2-cancel; wait $input
           sleep 1
-          bin/mac-input tap 500 & sleep 0.5; shot 3-idle; wait
+          bin/mac-input tap 500 & input=$!; sleep 0.5; shot 3-idle; wait $input
           sleep 1
           bin/mac-input flick 225 260 500; sleep 0.5; shot 4-toast
           sleep 1
