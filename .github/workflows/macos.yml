@@ -27,6 +27,32 @@ jobs:
       - name: Photograph the UI
         run: npx electron test/mac-ui.js
 
+      # The real app, driven by real keyboard and pointer events: hold Control+Option,
+      # flick, let go. Checks what each hold did and how fast the wheel came and went.
+      - name: Hold the real shortcut
+        if: always()
+        run: |
+          out=test-output/mac/live
+          mkdir -p "$out" bin
+          swiftc -O -o bin/mac-input test/mac-input.swift
+          # Skip the welcome guide, which opens on first launch.
+          prefs="$HOME/Library/Application Support/Orbit"
+          mkdir -p "$prefs" && echo '{ "onboarded": true }' > "$prefs/prefs.json"
+          ORBIT_TRACE=1 npx electron . > "$out/app.log" 2>&1 &
+          sleep 8
+          shot() { screencapture -x "$out/$1.png" || true; }
+          bin/mac-input flick 225 260 700 & sleep 0.8; shot 1-aimed; wait; sleep 0.5; shot 1-toast
+          sleep 2.5
+          bin/mac-input flick 45 260 400 back & sleep 0.65; shot 2-aimed; sleep 0.35; shot 2-cancel; wait
+          sleep 1
+          bin/mac-input tap 500 & sleep 0.5; shot 3-idle; wait
+          sleep 1
+          bin/mac-input flick 225 260 500; sleep 0.5; shot 4-toast
+          sleep 1
+          pkill -f 'electron \.' || true
+          grep '^\[orbit' "$out/app.log" || { tail -40 "$out/app.log"; exit 1; }
+          node test/mac-live-check.js "$out/app.log"
+
       - name: Launch the app
         if: always()
         run: |

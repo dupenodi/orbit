@@ -43,6 +43,9 @@ let practicing = false
 let watcher
 let pointerTimer
 
+// ORBIT_TRACE=1 logs each step of a hold with a timestamp, for end-to-end tests.
+const trace = process.env.ORBIT_TRACE ? (...parts) => console.log(`[orbit ${Date.now()}]`, ...parts) : () => {}
+
 function isMac() {
   return process.platform === 'darwin'
 }
@@ -158,6 +161,7 @@ function startHold(front) {
     return
   }
   if (!overlay) return
+  trace('hold', front.bundleId || '-')
   current = wheelFor(front)
   if (current.error) showToast({ ok: false, title: 'Couldn’t read wheels.json', message: 'Using the default wheel for now' })
   pointerHome = screen.getCursorScreenPoint()
@@ -167,7 +171,7 @@ function startHold(front) {
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   if (!overlay.isVisible()) overlay.setOpacity(0)
   overlay.showInactive()
-  fadeOverlay(1, 140)
+  fadeOverlay(1, 140, () => trace('shown'))
   beginHold(overlay, 'wheel', {
     origin: relativeTo(overlay, center),
     slots: current.slots.map(({ label, caption, icon, glyph }) => ({ label, caption, icon, glyph })),
@@ -178,6 +182,7 @@ function finishHold(mode) {
   if (!holding) return
   const { win, channel } = holding
   holding = null
+  trace('release', mode)
   clearInterval(pointerTimer)
   if (win.isDestroyed()) return
   win.webContents.send(mode === 'cancel' ? `${channel}:cancel` : `${channel}:release`)
@@ -186,7 +191,16 @@ function finishHold(mode) {
     pointerHome = null
   }
   // The page fades the wheel out over the same stretch; hide once both are gone.
-  if (win === overlay) fadeOverlay(0, 170, () => overlay.hide(), easeIn)
+  if (win === overlay)
+    fadeOverlay(
+      0,
+      170,
+      () => {
+        overlay.hide()
+        trace('hidden')
+      },
+      easeIn,
+    )
 }
 
 function stopWatcher() {
@@ -229,6 +243,7 @@ function startWatcher() {
       }
       if (line === 'up') finishHold('release')
       if (line === 'warped') {
+        trace('warped')
         clearTimeout(warpPending)
         warpPending = null
       }
@@ -313,6 +328,7 @@ function createToast() {
 
 function showToast(result) {
   if (!toast || toast.isDestroyed()) return
+  trace('toast', result.ok ? 'ok' : 'error', result.title, '·', result.message)
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const { width, height } = toast.getBounds()
   const area = display.workArea
@@ -534,6 +550,7 @@ ipcMain.on('wheel:choose', async (event, index) => {
   if (event.sender !== overlay?.webContents || !current) return
   const slot = current.slots[index]
   if (!slot) return
+  trace('chose', slot.label)
   const result = await runAction(slot, current.context)
   // Backing out of a picker is the user's own doing; nothing to report.
   if (!result.ok && result.message === 'Cancelled') return
@@ -544,6 +561,7 @@ ipcMain.on('wheel:choose', async (event, index) => {
 // real wheel and onboarding's practice one alike.
 function tick(event, win) {
   if (!isMac() || !win || event.sender !== win.webContents || holding?.win !== win) return
+  trace('tick')
   if (watcher?.stdin?.writable) watcher.stdin.write('tick\n')
 }
 
