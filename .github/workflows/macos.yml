@@ -38,6 +38,9 @@ jobs:
           out=test-output/mac/live
           mkdir -p "$out" bin
           swiftc -O -o bin/mac-input test/mac-input.swift
+          # Runner images turn Reduce Motion on; turn it off so the fades really play.
+          # (If macOS refuses, the check verifies the reduced-motion path instead.)
+          defaults write com.apple.universalaccess reduceMotion -bool false || true
           # Skip the welcome guide, which opens on first launch.
           prefs="$HOME/Library/Application Support/Orbit"
           mkdir -p "$prefs" && echo '{ "onboarded": true }' > "$prefs/prefs.json"

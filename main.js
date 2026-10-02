@@ -677,6 +677,7 @@ app.on('second-instance', () => openSettings())
 
 app.whenReady().then(async () => {
   if (!primaryInstance) return
+  trace('motion', systemPreferences.getAnimationSettings().prefersReducedMotion ? 'reduced' : 'full')
   if (isMac()) {
     app.setActivationPolicy('accessory')
     app.dock?.hide()

@@ -42,5 +42,16 @@ for (const [index, hold] of holds.entries()) {
 }
 
 const shown = holds.map((hold) => since(hold, 'hold', 'shown')).filter((ms) => ms != null)
+const hidden = holds.map((hold) => since(hold, 'release', 'hidden')).filter((ms) => ms != null)
 expect(shown.length === holds.length && Math.max(...shown) < 400, 'the wheel is fully shown within 400ms of the hold')
+
+// With Reduce Motion on, Orbit skips its fades; otherwise they must actually play.
+const motion = events.find((event) => event.name === 'motion')?.detail
+console.log(`system motion: ${motion ?? 'unknown'}`)
+if (motion === 'full') {
+  expect(Math.min(...shown) >= 120, 'the wheel fades in rather than popping (≥120ms)')
+  expect(hidden.length === holds.length && Math.min(...hidden) >= 150 && Math.max(...hidden) < 400, 'it fades out over its 170ms, not instantly or slowly')
+} else if (motion === 'reduced') {
+  expect(Math.max(...hidden) < 60, 'with Reduce Motion on, it disappears at once')
+}
 process.exit(failures.length ? 1 : 0)
