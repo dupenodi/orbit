@@ -71,7 +71,7 @@ window.orbit?.onWarm((_event, payload) => {
   warming = setTimeout(() => {
     dispatch({ type: 'cancel' })
     view?.dismiss(false)
-  }, 300)
+  }, 600)
 })
 
 window.orbit?.onPointer((_event, point) => {

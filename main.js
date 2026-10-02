@@ -165,14 +165,18 @@ function wheelSlots(slots) {
 function warmOverlay() {
   if (holding) return
   coverPointerDisplay()
-  overlay.setOpacity(0)
+  // Fully transparent windows are skipped by the window server, frosted backdrop and
+  // all; 1% gets them composited while staying invisible.
+  overlay.setOpacity(0.01)
   overlay.setIgnoreMouseEvents(true)
   overlay.showInactive()
   overlay.webContents.send('wheel:warm', { slots: wheelSlots(wheelFor({ bundleId: '' }).slots) })
   setTimeout(() => {
     overlay.setIgnoreMouseEvents(false)
-    if (holding?.win !== overlay) overlay.hide()
-  }, 700)
+    if (holding?.win === overlay) return
+    overlay.hide()
+    overlay.setOpacity(0)
+  }, 900)
 }
 
 function warmToast() {
