@@ -540,6 +540,16 @@ ipcMain.on('wheel:choose', async (event, index) => {
   showToast({ ...result, title: slot.label, icon: slot.icon })
 })
 
+// A haptic detent as the aim crosses into a new slice (macOS trackpads), for the
+// real wheel and onboarding's practice one alike.
+function tick(event, win) {
+  if (!isMac() || !win || event.sender !== win.webContents || holding?.win !== win) return
+  if (watcher?.stdin?.writable) watcher.stdin.write('tick\n')
+}
+
+ipcMain.on('wheel:tick', (event) => tick(event, overlay))
+ipcMain.on('practice:tick', (event) => tick(event, onboarding))
+
 ipcMain.handle('prefs:get', () => publicPrefs())
 
 ipcMain.handle('prefs:beginRecord', () => {

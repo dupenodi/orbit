@@ -321,6 +321,7 @@ export function createWheelView(root, slots, options = {}) {
         }
         const slot = slots[index]
         showHub(slot.label, slot.caption ?? '', false)
+        options.onSelect?.(index)
       } else {
         if (plateShown) {
           plateShown = false

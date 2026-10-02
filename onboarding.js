@@ -32,7 +32,8 @@ wheelHost.append($('#wheel-template').content.cloneNode(true))
 $('[data-dock="welcome"]').append(wheelHost)
 const config = { slots: info.slots, deadzone: 40 }
 let wheelState = initialState()
-const wheelView = createWheelView(wheelHost, info.slots, { deadzone: config.deadzone })
+// The tick only reaches the trackpad during a real practice hold; the demo is silent.
+const wheelView = createWheelView(wheelHost, info.slots, { deadzone: config.deadzone, onSelect: () => window.orbitApp.practiceTick() })
 
 function dispatch(action) {
   wheelState = reduce(wheelState, action, config)

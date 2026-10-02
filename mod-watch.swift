@@ -121,7 +121,9 @@ func frontContext() -> String {
 }
 
 // Orbit writes "warp x y" (global points, top-left origin) when the wheel had to be
-// nudged away from a screen edge, so the cursor starts in the middle of the hub.
+// nudged away from a screen edge, so the cursor starts in the middle of the hub,
+// and "tick" each time the aim crosses into a new slice: a light detent on a
+// Force Touch trackpad, felt only while a finger is on it.
 func listenForCommands() {
   var pending = ""
   FileHandle.standardInput.readabilityHandler = { handle in
@@ -132,6 +134,10 @@ func listenForCommands() {
     pending = lines.removeLast()
     DispatchQueue.main.async {
       for line in lines {
+        if line == "tick" {
+          NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+          continue
+        }
         let parts = line.split(separator: " ")
         guard parts.count == 3, parts[0] == "warp", let x = Double(parts[1]), let y = Double(parts[2]) else { continue }
         CGWarpMouseCursorPosition(CGPoint(x: x, y: y))

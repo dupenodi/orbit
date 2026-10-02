@@ -13,7 +13,7 @@ function setSlots(slots) {
   slotsKey = key
   config.slots = slots
   document.querySelector('#ring').replaceChildren()
-  view = createWheelView(document, slots, { deadzone: config.deadzone })
+  view = createWheelView(document, slots, { deadzone: config.deadzone, onSelect: () => window.orbit?.tick?.() })
 }
 
 function dispatch(action) {

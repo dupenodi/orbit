@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('orbitApp', {
   openOnboarding: () => ipcRenderer.invoke('onboarding:open'),
   finishOnboarding: (options) => ipcRenderer.invoke('onboarding:finish', options),
   setPractice: (on) => ipcRenderer.send('practice:set', on),
+  practiceTick: () => ipcRenderer.send('practice:tick'),
   onPractice: (fn) => {
     for (const name of ['start', 'pointer', 'release', 'cancel']) {
       ipcRenderer.on(`practice:${name}`, (_event, payload) => fn(name, payload))
