@@ -81,6 +81,37 @@ function readCode(image) {
   return jsQR(pixels, width, height, { inversionAttempts: 'attemptBoth' })?.data ?? null
 }
 
+// Pickers that take over the screen (macOS's screencapture and colour sampler,
+// Orbit's own picker on Windows) can't share it: opening one closes the one
+// already open, and the closed one reports a quiet "Cancelled".
+const PICKERS = new Set(['grab-text', 'screenshot', 'scan-qr', 'pick-color'])
+const CANCELLED = { ok: false, message: 'Cancelled' }
+let openPicker = null
+
+function takeScreen(task) {
+  const previous = openPicker
+  const controller = new AbortController()
+  const done = (async () => {
+    if (previous) {
+      previous.controller.abort()
+      await previous.done
+    }
+    if (controller.signal.aborted) return CANCELLED
+    try {
+      const result = await task(controller.signal)
+      return controller.signal.aborted ? CANCELLED : result
+    } catch (error) {
+      return { ok: false, message: firstLine(error.message) }
+    }
+  })()
+  const entry = { controller, done }
+  openPicker = entry
+  done.then(() => {
+    if (openPicker === entry) openPicker = null
+  })
+  return done
+}
+
 function preview(text) {
   return text.length > 40 ? `${text.slice(0, 40)}…` : text
 }
@@ -126,20 +157,15 @@ const WINDOWS = {
 }
 
 // `runShell` and `pick` come from the caller, so this module stays free of window code.
-async function runBuiltin(run, context, { runShell, pick }) {
+// Both take an AbortSignal, which closes the picker they opened.
+function runBuiltin(run, context, { runShell, pick }) {
   if (run.action === 'timer') return toggleTimer(run.minutes ?? 25)
-  if (IS_WIN) {
-    const action = WINDOWS[run.action]
-    if (!action) return { ok: false, message: `Unknown built-in action “${run.action}”` }
-    try {
-      return await action(pick)
-    } catch (error) {
-      return { ok: false, message: firstLine(error.message) }
-    }
-  }
-  const script = MAC_SCRIPTS[run.action]
-  if (!script) return { ok: false, message: `Unknown built-in action “${run.action}”` }
-  return runShell({ cmd: `"$ORBIT_HELPERS/${script}"` }, context)
+  const start = IS_WIN ? WINDOWS[run.action] : MAC_SCRIPTS[run.action]
+  if (!start) return Promise.resolve({ ok: false, message: `Unknown built-in action “${run.action}”` })
+  const task = IS_WIN
+    ? (signal) => start((mode) => pick(mode, signal))
+    : (signal) => runShell({ cmd: `"$ORBIT_HELPERS/${start}"` }, context, { signal })
+  return PICKERS.has(run.action) ? takeScreen(task) : task().catch((error) => ({ ok: false, message: firstLine(error.message) }))
 }
 
 module.exports = { readCode, readText, runBuiltin }

@@ -172,6 +172,14 @@ async function testSlots() {
   const cancelled = await withInput(slot('Screenshot', 'screenshot'), () => input('esc'))
   check('Esc cancels the picker', !cancelled.ok && cancelled.message === 'Cancelled', cancelled.message)
 
+  // Pickers take turns: Pick Color opened over an open Screenshot replaces it.
+  const replaced = runAction(slot('Screenshot', 'screenshot'), {})
+  await sleep(2500)
+  const replacing = await withInput(slot('Pick Color', 'pick-color'), () => input('click', 850, 150), 'picker-replaced')
+  const replacedResult = await replaced
+  check('opening Pick Color cancels an open Screenshot quietly', !replacedResult.ok && replacedResult.message === 'Cancelled', replacedResult.message)
+  check('…and the eyedropper still picks', replacing.ok && (await clipboard.readText()) === '#3A7BD5', replacing.message)
+
   const themeA = await runAction(slot('Switch Theme', 'switch-theme'), {})
   const themeB = await runAction(slot('Switch Theme', 'switch-theme'), {})
   check('Switch Theme slot', themeA.ok && themeB.ok && themeA.message !== themeB.message, `${themeA.message} / ${themeB.message}`)

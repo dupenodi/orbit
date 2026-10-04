@@ -54,12 +54,16 @@ ipcMain.on('capture:done', (event, result) => {
 })
 
 // mode 'region' resolves { image } (a NativeImage in real pixels); mode 'point'
-// resolves { color: '#RRGGBB' }. Resolves null when cancelled.
-async function pickFromScreen(mode) {
-  if (session) return null
+// resolves { color: '#RRGGBB' }. Resolves null when cancelled, which `signal`
+// (an AbortSignal) also does, closing the picker. A new pick replaces an open one.
+async function pickFromScreen(mode, signal) {
+  finish(null)
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
+  if (signal?.aborted) return null
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const shot = await grabDisplay(display)
+  if (signal?.aborted) return null
+  finish(null)
   return new Promise((resolve) => {
     const win = new BrowserWindow({
       ...display.bounds,
@@ -83,6 +87,7 @@ async function pickFromScreen(mode) {
       },
     })
     session = { win, mode, shot, bounds: display.bounds, resolve }
+    signal?.addEventListener('abort', () => session?.win === win && finish(null), { once: true })
     win.setAlwaysOnTop(true, 'screen-saver')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
     win.setBounds(display.bounds)

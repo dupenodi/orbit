@@ -22,6 +22,12 @@ jobs:
       - name: Build the native helpers
         run: node scripts/ensure-mod-watch.js
 
+      # The real screencapture, eyedropper and text grabber: opening one picker
+      # must close the one already open.
+      - name: Pickers take turns
+        timeout-minutes: 2
+        run: npx electron test/mac-pickers.js
+
       # Real windows, vibrancy and SF Pro, in dark and light appearance; fails on
       # page errors, and flags (without failing) frame pacing worse than the
       # runner's own idle noise, since hosted runners have no real GPU.

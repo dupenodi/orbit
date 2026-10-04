@@ -154,19 +154,41 @@ function shellCommand(cmd) {
   return ['/bin/zsh', ['-lc', cmd]]
 }
 
-function runShell(run, context) {
+// Stops a command and whatever it started (zsh → screencapture), which shares
+// its process group; anything that shrugs off SIGTERM gets SIGKILL a second later.
+function stopGroup(child) {
+  const kill = (signal) => {
+    try {
+      process.kill(IS_WIN ? child.pid : -child.pid, signal)
+    } catch {}
+  }
+  kill('SIGTERM')
+  const force = setTimeout(() => kill('SIGKILL'), 1_000)
+  child.once('close', () => clearTimeout(force))
+}
+
+// `signal` (an AbortSignal) stops the command early; it then reports "Cancelled".
+function runShell(run, context, { signal: abort } = {}) {
   const vars = contextEnv(context)
   const env = { ...process.env, ...vars, PATH: [...EXTRA_PATH, process.env.PATH].join(path.delimiter) }
   const cwd = context.project && fs.existsSync(context.project) ? context.project : os.homedir()
   const [file, args] = shellCommand(run.cmd)
   return new Promise((resolve) => {
-    const child = spawn(file, args, { cwd, env, timeout: SHELL_TIMEOUT_MS, windowsHide: true })
+    // A stoppable command leads its own process group, so stopping it reaches its children.
+    const child = spawn(file, args, { cwd, env, timeout: SHELL_TIMEOUT_MS, windowsHide: true, detached: Boolean(abort) && !IS_WIN })
+    const stop = () => stopGroup(child)
+    abort?.addEventListener('abort', stop, { once: true })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (chunk) => (stdout += chunk))
     child.stderr.on('data', (chunk) => (stderr += chunk))
     child.on('error', (error) => resolve({ ok: false, message: error.message }))
     child.on('close', (code, signal) => {
+      abort?.removeEventListener('abort', stop)
+      if (abort?.aborted) {
+        resolve({ ok: false, message: 'Cancelled' })
+        return
+      }
       if (code === 0) {
         resolve({ ok: true, message: expand(run.toast ?? '', vars) || lastLine(stdout) || 'Done' })
         return
